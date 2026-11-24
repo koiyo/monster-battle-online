@@ -135,7 +135,7 @@
       </button>
       <button type="button" class="mode-card" id="btn-mode-editor">
         <span class="ic">🛠️</span>
-        <span><span class="t">カード編集・デッキ</span><div class="d">カードを編集して、自分だけの30枚デッキを保存できます。</div></span>
+        <span><span class="t">カード編集・デッキ</span><div class="d">カードを作成・編集して、自分だけの30枚デッキを保存できます。</div></span>
       </button>
     </div>
     <div style="text-align:center; margin-top:16px;">
@@ -173,7 +173,12 @@
   <section id="screen-editor" class="hidden">
     <div style="margin-bottom:10px;"><button type="button" class="btn small" id="btn-editor-back">← モード選択に戻る</button></div>
     <h1 style="font-size:1.3rem;">🛠️ カード編集・デッキ</h1>
-    <p class="note">カードの名前・アイコン・コスト・能力と効果を編集し、30枚ちょうどのデッキを組んで保存できます（同じカードは最大3枚まで）。保存したデッキは、CPU対戦ではあなた専用に、オンライン対戦では各自の持ち込みとして使われます。編集していない場合は標準カード・標準デッキで遊べます。</p>
+    <p class="note">カードの名前・アイコン・コスト・能力と効果を編集し、30枚ちょうどのデッキを組んで保存できます（同じカードは最大3枚まで）。「＋ フォロワーを作成」「＋ スペルを作成」でカードの種類自体を増やすこともできます（最大64種まで）。各カードの「複製」「削除」も使えます。保存したデッキは、CPU対戦ではあなた専用に、オンライン対戦では各自の持ち込みとして使われます。編集していない場合は標準カード・標準デッキで遊べます。</p>
+    <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:12px;">
+      <button type="button" class="btn primary" id="btn-add-follower">＋ フォロワーを作成</button>
+      <button type="button" class="btn primary" id="btn-add-spell">＋ スペルを作成</button>
+      <span class="note" id="editor-kinds"></span>
+    </div>
     <div id="editor-list"></div>
     <div class="online-box">
       <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
@@ -1138,9 +1143,15 @@ function renderEditor() {
       <label>効果の数値<input type="number" id="edf-${esc(id)}-fxval" value="${fx.val}" min="0" max="15"></label>
       <label>強化の体力分（強化のときだけ）<input type="number" id="edf-${esc(id)}-fxval2" value="${fx.val2}" min="0" max="10"></label>`;
     }
-    return `<div class="ed-card" data-edid="${esc(id)}">${head}${base}${extra}</div></div>`;
+    const actions = `<div style="display:flex; gap:8px; margin-top:10px;">
+      <button type="button" class="btn small" data-dup="${esc(id)}">複製</button>
+      <button type="button" class="btn small" data-del="${esc(id)}" style="color:var(--bad); border-color:var(--bad);">削除</button>
+    </div>`;
+    return `<div class="ed-card" data-edid="${esc(id)}">${head}${base}${extra}</div>${actions}</div>`;
   }).join('');
   $('editor-list').innerHTML = html;
+  const kindsEl = $('editor-kinds');
+  if (kindsEl) kindsEl.textContent = `カード全${Object.keys(editState.cards).length}種（最大${L_MAX_KINDS}種）`;
   updateDeckSummary();
 }
 function readEditorCards() {
@@ -1161,6 +1172,84 @@ function readEditorCards() {
     cards[id] = def;
   }
   return cards;
+}
+// ---- カードの作成・複製・削除 ----
+// 新規カードのIDは、サーバー側サニタイズで通る形式（[a-zA-Z0-9_-]{1,64}）で自動採番する。
+// 標準カードのIDとは衝突しないよう custom_ 接頭辞を付け、セット内で一意になるまで振り直す。
+let customSeq = 0;
+function genCustomId() {
+  let id;
+  do {
+    customSeq++;
+    id = `custom_${Date.now().toString(36)}_${customSeq.toString(36)}_${Math.floor(Math.random() * 1296).toString(36)}`;
+  } while (editState && editState.cards[id]);
+  return id;
+}
+// 再描画で入力途中の編集内容が消えないよう、フォームの現在値を editState に取り込んでから操作する。
+// フォーム値は文字列で返るため、数値欄は数値に寄せてから保持する（保存時のサニタイズでも最終的に丸められる）。
+function syncEditorInputs() {
+  if (!editState) return;
+  const cards = readEditorCards();
+  for (const id of Object.keys(cards)) {
+    const d = cards[id];
+    for (const k of ['cost', 'atk', 'hp']) {
+      if (d[k] != null && d[k] !== '') {
+        const n = parseInt(d[k], 10);
+        if (!Number.isNaN(n)) d[k] = n;
+      }
+    }
+  }
+  editState.cards = cards;
+}
+function createCard(type) {
+  if (!editState) return null;
+  syncEditorInputs();
+  if (Object.keys(editState.cards).length >= L_MAX_KINDS) {
+    setEditorStatus(`カードは最大${L_MAX_KINDS}種までです。不要なカードを削除してください。`);
+    return null;
+  }
+  const id = genCustomId();
+  if (type === 'spell') {
+    editState.cards[id] = { type: 'spell', name: '新しいスペル', icon: '🪄', color: '#7a4a9e', cost: 2, fx: { dmgLeader: 2 }, text: '' };
+  } else {
+    editState.cards[id] = { type: 'follower', name: '新しいフォロワー', icon: '🐾', color: '#5b8a72', cost: 2, atk: 2, hp: 2, text: '' };
+  }
+  editState.counts[id] = 0;
+  renderEditor();
+  setEditorStatus(`「${editState.cards[id].name}」を作成しました。名前・能力を編集し、デッキに加えてから保存してください（いまはデッキ0枚）。`);
+  return id;
+}
+function duplicateCard(id) {
+  if (!editState || !editState.cards[id]) return null;
+  syncEditorInputs();
+  if (!editState.cards[id]) return null;
+  if (Object.keys(editState.cards).length >= L_MAX_KINDS) {
+    setEditorStatus(`カードは最大${L_MAX_KINDS}種までです。不要なカードを削除してください。`);
+    return null;
+  }
+  const src = editState.cards[id];
+  const nid = genCustomId();
+  const copy = JSON.parse(JSON.stringify(src));
+  copy.name = `${src.name} のコピー`.slice(0, 24);
+  editState.cards[nid] = copy;
+  editState.counts[nid] = 0;
+  renderEditor();
+  setEditorStatus(`「${src.name}」を複製して「${copy.name}」を作りました（デッキには0枚）。`);
+  return nid;
+}
+function deleteCard(id) {
+  if (!editState || !editState.cards[id]) return false;
+  syncEditorInputs();
+  if (!editState.cards[id]) return false;
+  const nm = editState.cards[id].name;
+  const inDeck = editState.counts[id] || 0;
+  delete editState.cards[id];
+  delete editState.counts[id];
+  renderEditor();
+  setEditorStatus(inDeck > 0
+    ? `「${nm}」を削除しました。デッキからも${inDeck}枚外れたので、合計30枚に調整してから保存してください。`
+    : `「${nm}」を削除しました。`);
+  return true;
 }
 function deckTotalCount() {
   if (!editState) return 0;
@@ -1301,6 +1390,8 @@ $('btn-back-mode').onclick = () => {
   if (mode === 'online') leaveOnline();
   else { lg = null; cur = null; show('screen-mode'); }
 };
+$('btn-add-follower').onclick = () => createCard('follower');
+$('btn-add-spell').onclick = () => createCard('spell');
 $('btn-editor-save').onclick = () => saveEditor();
 $('btn-editor-reset').onclick = () => resetEditor();
 $('btn-editor-export').onclick = () => exportEditor();
@@ -1318,6 +1409,8 @@ $('editor-file').addEventListener('change', (e) => {
 });
 $('editor-list').addEventListener('click', (e) => {
   if (!editState || !e.target || !e.target.dataset) return;
+  if (e.target.dataset.dup) { duplicateCard(e.target.dataset.dup); return; }
+  if (e.target.dataset.del) { deleteCard(e.target.dataset.del); return; }
   const incId = e.target.dataset.inc, decId = e.target.dataset.dec;
   const id = incId || decId;
   if (!id) return;
@@ -1343,6 +1436,7 @@ window.__MBTEST__ = {
   getEditState: () => editState,
   setDeckCount: (id, n) => { if (editState) { editState.counts[id] = n; updateDeckSummary(); } },
   deckProblems, saveEditor, importEditorData, resetEditor,
+  createCard, duplicateCard, deleteCard, genCustomId,
 };
 </script>
 </body>
