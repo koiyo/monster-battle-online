@@ -76,20 +76,23 @@ function attach(ws, room, seatIndex, code) {
 
 wss.on('connection', (ws) => {
   ws.on('message', (raw) => {
-    if (raw.length > 64 * 1024) return; // 異常に大きいメッセージは無視
+    if (raw.length > 256 * 1024) return; // 異常に大きいメッセージは無視（カード編集データの持ち込みを許すため上限は256KB）
     let msg;
     try { msg = JSON.parse(raw); } catch { return; }
 
     if (msg.type === 'create') {
       if (rooms.size >= MAX_ROOMS) return send(ws, { type: 'error', message: 'ルーム数が上限に達しています。しばらくしてからお試しください' });
       const code = makeCode();
+      // 持ち込みカードセット＋デッキはサーバー側で検証し、不正なら標準へフォールバック
+      const loadout = game.resolveLoadout(msg.loadout);
       const room = {
-        game: game.newGame(msg.name || 'プレイヤー1'),
+        game: game.newGame(msg.name || 'プレイヤー1', loadout),
         seats: [{ playerId: crypto.randomUUID(), ws: null }, null],
         lastActivity: Date.now(),
       };
       rooms.set(code, room);
       attach(ws, room, 0, code);
+      if (loadout.fallback) send(ws, { type: 'notice', message: '送られたカード／デッキが使えなかったため、標準デッキで対戦します' });
       return;
     }
 
@@ -98,11 +101,14 @@ wss.on('connection', (ws) => {
       const room = rooms.get(code);
       if (!room) return send(ws, { type: 'error', message: 'ルームが見つかりません' });
       if (room.seats[1] && room.seats[1].ws) return send(ws, { type: 'error', message: 'ルームは満員です' });
+      let joinLoadout = null;
       if (!room.seats[1]) {
         room.seats[1] = { playerId: crypto.randomUUID(), ws: null };
-        game.startGame(room.game, msg.name || 'プレイヤー2');
+        joinLoadout = game.resolveLoadout(msg.loadout);
+        game.startGame(room.game, msg.name || 'プレイヤー2', joinLoadout);
       }
       attach(ws, room, 1, code);
+      if (joinLoadout && joinLoadout.fallback) send(ws, { type: 'notice', message: '送られたカード／デッキが使えなかったため、標準デッキで対戦します' });
       return;
     }
 
