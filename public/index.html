@@ -1,0 +1,879 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>モンスターバトル</title>
+<style>
+  :root{
+    --bg:#171a26; --panel:#232738; --panel2:#2b3049; --line:#3d4266;
+    --text:#f2f3f8; --muted:#a7abc2; --accent:#e8b13c; --accent2:#4a7dd4;
+    --good:#4caf7d; --bad:#e05a4e; --ward:#4a9dd4; --rush:#c95ad4;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  body{margin:0; font-family:"Hiragino Kaku Gothic ProN","Noto Sans JP",system-ui,sans-serif; background:var(--bg); color:var(--text);}
+  .wrap{max-width:560px; margin:0 auto; padding:14px 12px 40px;}
+  h1{font-size:1.55rem; margin:6px 0 2px; text-align:center; letter-spacing:.04em;}
+  .sub{text-align:center; color:var(--muted); font-size:.85rem; margin:0 0 16px;}
+  .hidden{display:none !important;}
+  .btn{display:inline-flex; align-items:center; justify-content:center; gap:6px; padding:10px 16px; border-radius:10px; border:1px solid var(--line); background:var(--panel2); color:var(--text); font-size:.95rem; font-weight:700; cursor:pointer;}
+  .btn.primary{background:var(--accent); border-color:var(--accent); color:#241a02;}
+  .btn:disabled{opacity:.45; cursor:not-allowed;}
+  .btn.small{padding:6px 12px; font-size:.85rem;}
+  .mode-list{display:flex; flex-direction:column; gap:12px;}
+  .mode-card{display:flex; gap:12px; align-items:center; text-align:left; width:100%; padding:16px; border-radius:14px; border:1px solid var(--line); background:var(--panel); color:var(--text); cursor:pointer;}
+  .mode-card .ic{font-size:2rem;}
+  .mode-card .t{font-size:1.1rem; font-weight:800;}
+  .mode-card .d{font-size:.82rem; color:var(--muted); margin-top:2px;}
+  .online-box{background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:16px; margin-bottom:14px;}
+  .online-box h3{margin:0 0 10px; font-size:1rem;}
+  .field label{display:block; font-size:.8rem; color:var(--muted); margin-bottom:4px;}
+  .field input{width:100%; padding:10px; border-radius:8px; border:1px solid var(--line); background:var(--bg); color:var(--text); font-size:1rem; margin-bottom:10px;}
+  .note{font-size:.82rem; color:var(--muted); line-height:1.6;}
+  .conn-note{font-size:.85rem; min-height:1.3em; color:var(--accent);}
+
+  /* ===== 対戦画面 ===== */
+  .arena{display:flex; flex-direction:column; gap:8px;}
+  .fighter{background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:10px 12px;}
+  .fighter.turn-now{border-color:var(--accent); box-shadow:0 0 0 1px var(--accent);}
+  .f-head{display:flex; align-items:baseline; gap:8px; flex-wrap:wrap;}
+  .f-name{font-weight:800; font-size:1rem;}
+  .f-tag{font-size:.72rem; color:var(--muted);}
+  .f-status{font-size:.75rem; color:var(--accent); margin-left:auto;}
+  .hpbar{height:12px; border-radius:6px; background:#10121c; overflow:hidden; margin:6px 0 4px;}
+  .hpbar>div{height:100%; background:linear-gradient(90deg,#57b368,#8fd14f); transition:width .3s;}
+  .hpbar.low>div{background:linear-gradient(90deg,#d84a1f,#e8b13c);}
+  .hp-text{display:flex; justify-content:space-between; font-size:.8rem; color:var(--muted);}
+  .opp-hand{display:flex; gap:3px; margin-top:6px; min-height:22px;}
+  .cardback{width:16px; height:22px; border-radius:3px; background:linear-gradient(135deg,#4a3a7a,#2b3049); border:1px solid var(--line);}
+  .field-row{display:flex; gap:6px; justify-content:center; min-height:104px; padding:8px 6px; background:#1c1f30; border:1px dashed var(--line); border-radius:12px;}
+  .field-row .empty-note{align-self:center; color:var(--muted); font-size:.8rem;}
+  .slot{width:19%; max-width:96px;}
+  .minion{position:relative; border-radius:10px; padding:6px 4px 5px; text-align:center; background:var(--panel2); border:2px solid var(--line); height:100%;}
+  .minion .ic{font-size:1.55rem; line-height:1.15; display:block;}
+  .minion .nm{font-size:.62rem; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .minion .stats{display:flex; justify-content:space-between; font-weight:800; font-size:.85rem; margin-top:2px; padding:0 2px;}
+  .minion .stats .a{color:#ffb14e;} .minion .stats .h{color:#7dd87d;} .minion .stats .h.hurt{color:#ff7d6b;}
+  .minion .badges{position:absolute; top:-7px; right:-4px; display:flex; gap:2px;}
+  .badge{font-size:.58rem; font-weight:800; padding:1px 5px; border-radius:8px; color:#fff;}
+  .badge.ward{background:var(--ward);} .badge.rush{background:var(--rush);} .badge.sick{background:#666;}
+  .minion.can-attack{border-color:var(--good); cursor:pointer; box-shadow:0 0 8px rgba(76,175,125,.55);}
+  .minion.selected{border-color:var(--accent); box-shadow:0 0 10px rgba(232,177,60,.8);}
+  .minion.targetable{border-color:var(--bad); cursor:pointer; box-shadow:0 0 8px rgba(224,90,78,.6);}
+  .fighter.targetable{border-color:var(--bad); cursor:pointer; box-shadow:0 0 8px rgba(224,90,78,.6);}
+  .midbar{display:flex; align-items:center; justify-content:space-between; gap:8px; padding:2px 4px;}
+  .t-num{font-weight:800;} .t-who{color:var(--muted); font-size:.85rem;}
+  .lastplay{font-size:.78rem; color:var(--accent); text-align:center; min-height:1.2em;}
+  .energy-row{display:flex; align-items:center; gap:8px; margin-top:6px;}
+  .crystals{display:flex; gap:3px; flex-wrap:wrap;}
+  .cry{width:15px; height:15px; border-radius:4px; transform:rotate(45deg); background:#39406b; border:1px solid var(--line);}
+  .cry.on{background:var(--accent2); border-color:#7fb0ff;}
+  .e-num{font-size:.85rem; font-weight:800;}
+  .hand{display:flex; gap:8px; overflow-x:auto; padding:10px 2px 6px; min-height:150px;}
+  .card{flex:0 0 104px; border-radius:12px; border:2px solid var(--line); background:var(--panel); padding:7px 7px 6px; cursor:pointer; position:relative; text-align:center;}
+  .card.playable{border-color:#6d74a8;}
+  .card.selected{border-color:var(--accent); box-shadow:0 0 10px rgba(232,177,60,.8);}
+  .card.disabled{opacity:.5; cursor:not-allowed;}
+  .card .cost{position:absolute; top:-8px; left:-6px; width:24px; height:24px; border-radius:50%; background:var(--accent2); color:#fff; font-weight:800; display:flex; align-items:center; justify-content:center; font-size:.9rem; border:2px solid #10121c;}
+  .card .ic{font-size:1.7rem; display:block; margin-top:4px;}
+  .card .nm{font-size:.72rem; font-weight:800; margin:2px 0;}
+  .card .st{font-size:.78rem; font-weight:800;}
+  .card .st .a{color:#ffb14e;} .card .st .h{color:#7dd87d;}
+  .card .kw{font-size:.6rem; font-weight:800; color:#fff; border-radius:6px; padding:0 4px;}
+  .card .tx{font-size:.6rem; color:var(--muted); line-height:1.35; margin-top:2px; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden;}
+  .controls{display:flex; gap:8px; justify-content:center; flex-wrap:wrap; margin-top:6px;}
+  .hintbar{min-height:1.5em; text-align:center; font-size:.88rem; font-weight:700; color:var(--accent);}
+  .log{background:#10121c; border:1px solid var(--line); border-radius:12px; padding:10px 12px; margin-top:12px; max-height:180px; overflow-y:auto;}
+  .log h3{margin:0 0 6px; font-size:.85rem; color:var(--muted);}
+  .log ul{margin:0; padding-left:18px; font-size:.8rem; line-height:1.55;}
+  .log li.mark{font-weight:800; color:var(--accent);}
+
+  /* ===== オーバーレイ ===== */
+  .overlay{position:fixed; inset:0; background:rgba(8,9,16,.78); display:flex; align-items:center; justify-content:center; padding:18px; z-index:50;}
+  .overlay .box{background:var(--panel); border:1px solid var(--line); border-radius:16px; padding:22px; max-width:420px; width:100%; text-align:center;}
+  .overlay .box h2{margin:0 0 8px;}
+  .room-code-big{font-size:2.6rem; font-weight:800; letter-spacing:.35em; margin:10px 0; color:var(--accent);}
+  .winner-name{font-size:1.6rem; font-weight:800; margin:6px 0;}
+  .overlay .btnrow{display:flex; gap:8px; justify-content:center; flex-wrap:wrap; margin-top:14px;}
+  .rules-text{text-align:left; font-size:.85rem; line-height:1.7;}
+  .toast{position:fixed; left:50%; bottom:26px; transform:translateX(-50%); background:#10121c; border:1px solid var(--accent); color:var(--text); padding:10px 18px; border-radius:10px; font-size:.9rem; font-weight:700; z-index:99; box-shadow:0 4px 18px rgba(0,0,0,.5);}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <!-- モード選択 -->
+  <section id="screen-mode">
+    <h1>🐲 モンスターバトル</h1>
+    <p class="sub">モンスターを出して戦う、2人対戦カードゲーム</p>
+    <div class="mode-list">
+      <button type="button" class="mode-card" id="btn-mode-cpu">
+        <span class="ic">🤖</span>
+        <span><span class="t">CPU対戦</span><div class="d">コンピューターと1人で対戦します。</div></span>
+      </button>
+      <button type="button" class="mode-card" id="btn-mode-online">
+        <span class="ic">🌐</span>
+        <span><span class="t">オンライン対戦</span><div class="d">ルームコードで離れた相手と対戦します。</div></span>
+      </button>
+    </div>
+    <div style="text-align:center; margin-top:16px;">
+      <button type="button" class="btn" id="btn-rules-top">📖 ルール</button>
+    </div>
+  </section>
+
+  <!-- オンラインロビー -->
+  <section id="screen-online" class="hidden">
+    <div style="margin-bottom:10px;"><button type="button" class="btn small" id="btn-online-back">← モード選択に戻る</button></div>
+    <h1 style="font-size:1.3rem;">🌐 オンライン対戦</h1>
+    <div class="online-box">
+      <h3>ルームを作る</h3>
+      <div class="field"><label for="oname">あなたの名前</label><input id="oname" type="text" maxlength="12" placeholder="例：プレイヤー1"></div>
+      <button type="button" class="btn primary" id="btn-create-room" style="width:100%;">ルームを作る</button>
+    </div>
+    <div class="online-box">
+      <h3>コードで参加する</h3>
+      <div class="field"><label for="ocode">ルームコード（4文字）</label><input id="ocode" type="text" maxlength="4" placeholder="例：AB3K" style="text-transform:uppercase; letter-spacing:.3em; font-weight:800;"></div>
+      <button type="button" class="btn primary" id="btn-join-room" style="width:100%;">参加する</button>
+    </div>
+    <div class="online-box hidden" id="oreconnect-box">
+      <h3>前の対戦に戻る</h3>
+      <p class="note" style="margin-top:0;">回線が切れた対戦の続きに参加できます（ルーム <b id="oreconnect-code"></b>）。</p>
+      <div style="display:flex; gap:8px; flex-wrap:wrap;">
+        <button type="button" class="btn" id="btn-reconnect">再接続する</button>
+        <button type="button" class="btn" id="btn-forget-room">記録を消す</button>
+      </div>
+    </div>
+    <p class="conn-note" id="online-status"></p>
+  </section>
+
+  <!-- 対戦画面（CPU／オンライン共通） -->
+  <section id="screen-game" class="hidden">
+    <div class="arena">
+      <div class="fighter" id="panel-foe">
+        <div class="f-head">
+          <span class="f-name" id="foe-name">相手</span>
+          <span class="f-tag" id="foe-tag"></span>
+          <span class="f-status" id="foe-status"></span>
+        </div>
+        <div class="hpbar" id="foe-hpbar"><div id="foe-hpfill" style="width:100%"></div></div>
+        <div class="hp-text"><span id="foe-hptext"></span><span id="foe-deck"></span></div>
+        <div class="opp-hand" id="foe-handbacks"></div>
+      </div>
+      <div class="field-row" id="foe-field"></div>
+      <div class="midbar">
+        <span class="t-num" id="turn-num">ターン 1</span>
+        <span class="lastplay" id="lastplay"></span>
+        <span class="t-who" id="turn-who">—</span>
+      </div>
+      <div class="field-row" id="my-field"></div>
+      <div class="fighter" id="panel-me">
+        <div class="f-head">
+          <span class="f-name" id="me-name">あなた</span>
+          <span class="f-tag" id="me-tag"></span>
+          <span class="f-status" id="me-status"></span>
+        </div>
+        <div class="hpbar" id="me-hpbar"><div id="me-hpfill" style="width:100%"></div></div>
+        <div class="hp-text"><span id="me-hptext"></span><span id="me-deck"></span></div>
+        <div class="energy-row">
+          <div class="crystals" id="crystals"></div>
+          <span class="e-num" id="energy-num"></span>
+        </div>
+      </div>
+      <div class="hintbar" id="hintbar"></div>
+      <div class="hand" id="hand"></div>
+      <div class="controls">
+        <button type="button" class="btn primary" id="btn-endturn">ターン終了</button>
+        <button type="button" class="btn hidden" id="btn-cancel-sel">選択をやめる</button>
+        <button type="button" class="btn" id="btn-rules2">ルール</button>
+        <button type="button" class="btn" id="btn-surrender">降参</button>
+        <button type="button" class="btn" id="btn-leave">退出</button>
+      </div>
+    </div>
+    <div class="log"><h3>バトルログ</h3><ul id="log"></ul></div>
+    <p class="note" id="room-note"></p>
+  </section>
+</div>
+
+<!-- 相手待ち（オンライン） -->
+<div class="overlay hidden" id="overlay-wait">
+  <div class="box">
+    <h2>ルームを作成しました</h2>
+    <p style="margin:0;">このコードを相手に伝えてください</p>
+    <div class="room-code-big" id="wait-code">----</div>
+    <p class="note">相手が参加すると対戦が始まります。</p>
+    <div class="btnrow"><button type="button" class="btn" id="btn-wait-leave">やめる（モード選択へ）</button></div>
+  </div>
+</div>
+
+<!-- 結果 -->
+<div class="overlay hidden" id="overlay-result">
+  <div class="box">
+    <h2>勝負あり！</h2>
+    <div class="winner-name" id="result-winner">—</div>
+    <p id="result-detail"></p>
+    <div class="btnrow">
+      <button type="button" class="btn primary" id="btn-rematch">もう一戦</button>
+      <button type="button" class="btn" id="btn-back-mode">モード選択に戻る</button>
+    </div>
+  </div>
+</div>
+
+<!-- 降参確認 -->
+<div class="overlay hidden" id="overlay-surrender">
+  <div class="box">
+    <h2>降参しますか？</h2>
+    <p>降参すると、この対戦は負けになります。</p>
+    <div class="btnrow">
+      <button type="button" class="btn primary" id="btn-surrender-yes">降参する</button>
+      <button type="button" class="btn" id="btn-surrender-no">対戦に戻る</button>
+    </div>
+  </div>
+</div>
+
+<!-- ルール -->
+<div class="overlay hidden" id="overlay-rules">
+  <div class="box">
+    <h2>ルール</h2>
+    <div class="rules-text">
+      <p>・相手リーダーのHP（20）を0にしたら勝ち。</p>
+      <p>・ターン開始時にエネルギーの最大値が+1（上限10）＆全回復し、カードを1枚引く（先攻の1ターン目だけ引かない）。手札は最大9枚、デッキは30枚。</p>
+      <p>・フォロワー（モンスター）はコストを払って場に出す。場には最大5体まで。出してすぐのターンは攻撃できない（<b>召喚酔い</b>）。ただし<b>疾走</b>持ちはすぐ攻撃できる。</p>
+      <p>・自分のターンに、フォロワーは1回ずつ攻撃できる。相手フォロワーを攻撃すると、お互いの攻撃力分を同時に受け合う。</p>
+      <p>・<b>守護</b>のフォロワーがいる間、相手はリーダーや他のフォロワーを攻撃できず、守護を攻撃しなければならない。</p>
+      <p>・<b>ファンファーレ</b>は場に出たとき、<b>ラストワード</b>は破壊されたときに発動する。</p>
+      <p>・山札が尽きたら捨て札をシャッフルして使い回す。それも無いと引くたびに1ダメージ。</p>
+    </div>
+    <div class="btnrow"><button type="button" class="btn primary" id="btn-rules-close">閉じる</button></div>
+  </div>
+</div>
+
+<div class="toast hidden" id="toast"></div>
+
+<script>
+// ===== ローカルエンジン（CPU対戦用）: サーバー側 game.js と同じルールの移植 =====
+const LCARDS = {
+  slime:    { type: 'follower', name: 'スライム', icon: '🟢', color: '#58a05c', cost: 1, atk: 1, hp: 2, text: 'ぷにぷにした体。' },
+  goblin:   { type: 'follower', name: 'ゴブリン', icon: '👺', color: '#7a9e43', cost: 1, atk: 2, hp: 1, text: '攻撃的だが打たれ弱い。' },
+  wolf:     { type: 'follower', name: 'オオカミ', icon: '🐺', color: '#6b7f8e', cost: 2, atk: 3, hp: 2, text: '群れを離れた一匹狼。' },
+  knight:   { type: 'follower', name: 'ガードナイト', icon: '🛡️', color: '#4a6fa5', cost: 2, atk: 2, hp: 3, ward: true, text: '守護：相手はこのフォロワーを攻撃しなければならない。' },
+  fairy:    { type: 'follower', name: 'フェアリー', icon: '🧚', color: '#c77dbb', cost: 2, atk: 1, hp: 1, fanfare: { draw: 1 }, text: 'ファンファーレ：カードを1枚引く。' },
+  skeleton: { type: 'follower', name: 'スケルトン', icon: '💀', color: '#8f8f8f', cost: 2, atk: 2, hp: 1, lastwords: { dmgLeader: 1 }, text: 'ラストワード：相手リーダーに1ダメージ。' },
+  assassin: { type: 'follower', name: 'アサシン', icon: '🗡️', color: '#5b4a8a', cost: 3, atk: 3, hp: 1, rush: true, text: '疾走：出したターンから攻撃できる。' },
+  mage:     { type: 'follower', name: 'メイジ', icon: '🔮', color: '#7a4a9e', cost: 3, atk: 2, hp: 2, fanfare: { dmgLeader: 2 }, text: 'ファンファーレ：相手リーダーに2ダメージ。' },
+  treant:   { type: 'follower', name: 'トレント', icon: '🌳', color: '#4e7a3a', cost: 3, atk: 2, hp: 4, lastwords: { summon: 'slime_token' }, text: 'ラストワード：ミニスライム1体を出す。' },
+  unicorn:  { type: 'follower', name: 'ユニコーン', icon: '🦄', color: '#d8a7c3', cost: 4, atk: 3, hp: 3, fanfare: { healLeader: 3 }, text: 'ファンファーレ：リーダーを3回復。' },
+  golem:    { type: 'follower', name: 'ゴーレム', icon: '🗿', color: '#8a6d3b', cost: 4, atk: 3, hp: 5, ward: true, text: '守護：相手はこのフォロワーを攻撃しなければならない。' },
+  phoenix:  { type: 'follower', name: 'フェニックス', icon: '🔥', color: '#d84a1f', cost: 5, atk: 4, hp: 3, lastwords: { dmgLeader: 2 }, text: 'ラストワード：相手リーダーに2ダメージ。' },
+  dragon:   { type: 'follower', name: 'ドラゴン', icon: '🐉', color: '#b03a2e', cost: 6, atk: 5, hp: 5, fanfare: { dmgAllFoe: 2 }, text: 'ファンファーレ：相手フォロワー全体に2ダメージ。' },
+  slime_token: { type: 'follower', name: 'ミニスライム', icon: '🟢', color: '#58a05c', cost: 1, atk: 1, hp: 1, text: 'トレントから生まれた小さなスライム。' },
+  fireball:  { type: 'spell', name: 'ファイアボール', icon: '🔥', color: '#d84a1f', cost: 2, needsTarget: 'foe', fx: { dmgTarget: 3 }, text: '相手フォロワー1体に3ダメージ。' },
+  smite:     { type: 'spell', name: 'スマイト', icon: '⚡', color: '#c98f06', cost: 3, fx: { dmgLeader: 4 }, text: '相手リーダーに4ダメージ。' },
+  heal:      { type: 'spell', name: 'ヒール', icon: '✨', color: '#b8860b', cost: 2, fx: { healLeader: 4 }, text: 'リーダーを4回復。' },
+  powerup:   { type: 'spell', name: 'パワーアップ', icon: '💪', color: '#2478a6', cost: 1, needsTarget: 'own', fx: { buffTarget: [2, 2] }, text: '自分のフォロワー1体を+2/+2する。' },
+  execution: { type: 'spell', name: '必殺の一撃', icon: '☠️', color: '#444444', cost: 4, needsTarget: 'foe', fx: { destroyTarget: true }, text: '相手フォロワー1体を破壊する。' },
+  meteor:    { type: 'spell', name: 'メテオ', icon: '☄️', color: '#a0522d', cost: 5, fx: { dmgAllFoe: 3 }, text: '相手フォロワー全体に3ダメージ。' },
+};
+const LDECK = [
+  'slime', 'slime', 'slime', 'goblin', 'goblin',
+  'wolf', 'wolf', 'wolf', 'knight', 'knight',
+  'fairy', 'fairy', 'skeleton', 'skeleton', 'assassin', 'assassin',
+  'mage', 'treant', 'unicorn', 'golem', 'golem', 'phoenix', 'dragon',
+  'fireball', 'fireball', 'meteor', 'smite', 'heal', 'powerup', 'execution',
+];
+const L_START_HP = 20, L_START_HAND = 4, L_HAND_LIMIT = 9, L_FIELD_LIMIT = 5, L_MAX_ENERGY = 10;
+let lUid = 1;
+function lShuffle(a) { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+function lMakePlayer(name) {
+  return { name, hp: L_START_HP, maxhp: L_START_HP, energy: 0, maxEnergy: 0,
+    deck: lShuffle(LDECK.map(d => ({ uid: lUid++, defId: d }))), hand: [], discard: [], field: [] };
+}
+function LG_newGame(name1) {
+  const g = { phase: 'waiting', players: [lMakePlayer(name1)], turn: 0, turnCount: 0, winner: null, lastPlay: null, log: [] };
+  lDraw(g, g.players[0], L_START_HAND, true);
+  return g;
+}
+function lLog(g, text, mark) { g.log.push({ text, mark: !!mark }); if (g.log.length > 60) g.log.shift(); }
+function LG_startGame(g, name2) {
+  const p2 = lMakePlayer(name2); g.players.push(p2);
+  lDraw(g, p2, L_START_HAND, true);
+  g.phase = 'playing';
+  lLog(g, `バトル開始！ ${g.players[0].name} vs ${p2.name}`, true);
+  lStartTurn(g, true);
+}
+function lDraw(g, p, n, silent) {
+  for (let i = 0; i < n; i++) {
+    if (p.deck.length === 0) {
+      if (p.discard.length > 0) { p.deck = lShuffle(p.discard); p.discard = []; if (!silent) lLog(g, `${p.name} は捨て札をシャッフルして山札に戻した`); }
+      else { p.hp -= 1; if (!silent) lLog(g, `${p.name} は山札切れで1ダメージ`); continue; }
+    }
+    const card = p.deck.pop();
+    if (p.hand.length >= L_HAND_LIMIT) { p.discard.push(card); if (!silent) lLog(g, `${p.name} の手札が上限で ${LCARDS[card.defId].name} は捨て札に`); }
+    else p.hand.push(card);
+  }
+}
+function lStartTurn(g, isFirst) {
+  if (g.phase !== 'playing') return;
+  const me = g.players[g.turn];
+  g.turnCount++;
+  me.maxEnergy = Math.min(L_MAX_ENERGY, me.maxEnergy + 1);
+  me.energy = me.maxEnergy;
+  for (const f of me.field) { f.sick = false; f.attacked = false; }
+  lLog(g, `${me.name} のターン（ターン${Math.ceil(g.turnCount / 2)}）`, true);
+  if (!isFirst) { lDraw(g, me, 1, false); if (lCheckEnd(g)) return; }
+  g.lastPlay = null;
+}
+function lResolveFx(g, pi, fx) {
+  const me = g.players[pi], foe = g.players[1 - pi], parts = [];
+  if (fx.dmgLeader) { foe.hp -= fx.dmgLeader; parts.push(`${foe.name} に ${fx.dmgLeader} ダメージ`); }
+  if (fx.healLeader) { const b = me.hp; me.hp = Math.min(me.maxhp, me.hp + fx.healLeader); parts.push(`HP ${me.hp - b} 回復`); }
+  if (fx.dmgAllFoe) { for (const f of foe.field) f.hp -= fx.dmgAllFoe; if (foe.field.length) parts.push(`相手フォロワー全体に ${fx.dmgAllFoe} ダメージ`); }
+  if (fx.summon) {
+    if (me.field.length < L_FIELD_LIMIT) {
+      const def = LCARDS[fx.summon];
+      me.field.push({ uid: lUid++, defId: fx.summon, atk: def.atk, hp: def.hp, maxHp: def.hp, sick: true, attacked: false });
+      parts.push(`${def.name} を出した`);
+    }
+  }
+  if (fx.draw) { lDraw(g, me, fx.draw, false); parts.push(`${fx.draw}枚ドロー`); }
+  return parts;
+}
+function lResolveDeaths(g) {
+  let guard = 0;
+  while (guard++ < 20) {
+    const dead = [];
+    g.players.forEach((p, pi) => {
+      for (let i = p.field.length - 1; i >= 0; i--) {
+        if (p.field[i].hp <= 0) { dead.unshift({ owner: pi, f: p.field[i] }); p.field.splice(i, 1); }
+      }
+    });
+    if (!dead.length) break;
+    for (const d of dead) {
+      const def = LCARDS[d.f.defId];
+      g.players[d.owner].discard.push({ uid: d.f.uid, defId: d.f.defId });
+      lLog(g, `${def.name} は破壊された`);
+      if (def.lastwords) { const parts = lResolveFx(g, d.owner, def.lastwords); if (parts.length) lLog(g, `${def.name} のラストワード： ${parts.join('、')}`); }
+    }
+    if (lCheckEnd(g)) return;
+  }
+}
+function LG_playCard(g, pi, handIndex, target) {
+  if (g.phase !== 'playing') return { error: 'ゲームが始まっていません' };
+  if (pi !== g.turn) return { error: '相手のターンです' };
+  const me = g.players[pi], foe = g.players[1 - pi];
+  const card = me.hand[handIndex];
+  if (!card) return { error: 'そのカードはありません' };
+  const def = LCARDS[card.defId];
+  if (def.cost > me.energy) return { error: 'エネルギーが足りません' };
+  if (def.type === 'follower') {
+    if (me.field.length >= L_FIELD_LIMIT) return { error: '場が満員です（最大5体）' };
+    me.energy -= def.cost;
+    me.hand.splice(handIndex, 1);
+    me.field.push({ uid: card.uid, defId: card.defId, atk: def.atk, hp: def.hp, maxHp: def.hp, sick: !def.rush, attacked: false });
+    g.lastPlay = { who: me.name, name: def.name, text: def.text };
+    lLog(g, `${me.name} は「${def.name}」を出した（${def.atk}/${def.hp}）`);
+    if (def.fanfare) { const parts = lResolveFx(g, pi, def.fanfare); if (parts.length) lLog(g, `${def.name} のファンファーレ： ${parts.join('、')}`); }
+  } else {
+    let targetF = null;
+    if (def.needsTarget) {
+      if (!target || (target.side !== 'foe' && target.side !== 'own')) return { error: '対象を選んでください' };
+      if (def.needsTarget === 'foe' && target.side !== 'foe') return { error: '相手のフォロワーを選んでください' };
+      if (def.needsTarget === 'own' && target.side !== 'own') return { error: '自分のフォロワーを選んでください' };
+      targetF = (target.side === 'foe' ? foe : me).field.find(f => f.uid === target.uid);
+      if (!targetF) return { error: '対象のフォロワーがいません' };
+    }
+    me.energy -= def.cost;
+    me.hand.splice(handIndex, 1);
+    me.discard.push(card);
+    g.lastPlay = { who: me.name, name: def.name, text: def.text };
+    const parts = [];
+    if (def.fx.dmgTarget) { targetF.hp -= def.fx.dmgTarget; parts.push(`${LCARDS[targetF.defId].name} に ${def.fx.dmgTarget} ダメージ`); }
+    if (def.fx.destroyTarget) { targetF.hp = 0; parts.push(`${LCARDS[targetF.defId].name} を破壊`); }
+    if (def.fx.buffTarget) { targetF.atk += def.fx.buffTarget[0]; targetF.hp += def.fx.buffTarget[1]; targetF.maxHp += def.fx.buffTarget[1]; parts.push(`${LCARDS[targetF.defId].name} を +${def.fx.buffTarget[0]}/+${def.fx.buffTarget[1]}`); }
+    parts.push(...lResolveFx(g, pi, def.fx));
+    lLog(g, `${me.name} の「${def.name}」： ${parts.join('、') || def.text}`);
+  }
+  lResolveDeaths(g);
+  lCheckEnd(g);
+  return { ok: true };
+}
+function LG_attack(g, pi, attackerUid, target) {
+  if (g.phase !== 'playing') return { error: 'ゲームが始まっていません' };
+  if (pi !== g.turn) return { error: '相手のターンです' };
+  const me = g.players[pi], foe = g.players[1 - pi];
+  const atk = me.field.find(f => f.uid === attackerUid);
+  if (!atk) return { error: 'そのフォロワーはいません' };
+  if (atk.sick) return { error: '出したターンには攻撃できません（召喚酔い）' };
+  if (atk.attacked) return { error: 'このフォロワーはすでに攻撃しました' };
+  if (atk.atk <= 0) return { error: '攻撃力が0のフォロワーは攻撃できません' };
+  if (!target || (target.type !== 'leader' && target.type !== 'follower')) return { error: '攻撃対象を選んでください' };
+  const wards = foe.field.filter(f => LCARDS[f.defId].ward);
+  if (target.type === 'leader') {
+    if (wards.length) return { error: '守護がいるためリーダーを攻撃できません' };
+    atk.attacked = true;
+    foe.hp -= atk.atk;
+    lLog(g, `${LCARDS[atk.defId].name} の攻撃： ${foe.name} に ${atk.atk} ダメージ`);
+  } else {
+    const tf = foe.field.find(f => f.uid === target.uid);
+    if (!tf) return { error: '対象のフォロワーがいません' };
+    if (wards.length && !LCARDS[tf.defId].ward) return { error: '守護のフォロワーを攻撃しなければなりません' };
+    atk.attacked = true;
+    tf.hp -= atk.atk;
+    atk.hp -= tf.atk;
+    lLog(g, `${LCARDS[atk.defId].name} の攻撃： ${LCARDS[tf.defId].name} と戦闘（${atk.atk} ⇔ ${tf.atk}）`);
+  }
+  lResolveDeaths(g);
+  lCheckEnd(g);
+  return { ok: true };
+}
+function LG_endTurn(g, pi) {
+  if (g.phase !== 'playing') return { error: 'ゲームが始まっていません' };
+  if (pi !== g.turn) return { error: '相手のターンです' };
+  lLog(g, `${g.players[pi].name} はターン終了`);
+  g.turn = 1 - g.turn;
+  lStartTurn(g, false);
+  return { ok: true };
+}
+function LG_surrender(g, pi) {
+  if (g.phase !== 'playing') return { error: 'ゲームが始まっていません' };
+  lLog(g, `${g.players[pi].name} が降参した`);
+  g.players[pi].hp = 0;
+  lCheckEnd(g);
+  return { ok: true };
+}
+function lCheckEnd(g) {
+  if (g.phase !== 'playing') return false;
+  const [p0, p1] = g.players;
+  if (p0.hp > 0 && p1.hp > 0) return false;
+  g.phase = 'over';
+  let loserIdx;
+  if (p0.hp <= 0 && p1.hp <= 0) loserIdx = 1 - g.turn;
+  else loserIdx = p0.hp <= 0 ? 0 : 1;
+  g.winner = 1 - loserIdx;
+  p0.hp = Math.max(0, p0.hp); p1.hp = Math.max(0, p1.hp);
+  lLog(g, `${g.players[g.winner].name} の勝利！`, true);
+  return true;
+}
+function LG_restart(g) {
+  const names = g.players.map(p => p.name);
+  const fresh = LG_newGame(names[0]);
+  Object.assign(g, fresh);
+  LG_startGame(g, names[1]);
+}
+function lFollowerView(f) {
+  const def = LCARDS[f.defId];
+  return { uid: f.uid, defId: f.defId, name: def.name, icon: def.icon, color: def.color, cost: def.cost,
+    atk: f.atk, hp: f.hp, maxHp: f.maxHp, ward: !!def.ward, rush: !!def.rush,
+    sick: f.sick, canAttack: !f.sick && !f.attacked, text: def.text };
+}
+function LG_viewFor(g, pi) {
+  const me = g.players[pi], foe = g.players[1 - pi];
+  const pub = (p) => p ? { name: p.name, hp: Math.max(0, p.hp), maxhp: p.maxhp, energy: p.energy, maxEnergy: p.maxEnergy,
+    handCount: p.hand.length, deckCount: p.deck.length, field: p.field.map(lFollowerView) } : null;
+  return { phase: g.phase, turn: g.turn, turnNumber: Math.ceil(Math.max(1, g.turnCount) / 2), youAre: pi,
+    isMyTurn: g.phase === 'playing' && g.turn === pi, winner: g.winner,
+    winnerName: g.winner != null ? g.players[g.winner].name : null, turnCount: g.turnCount,
+    me: me ? { ...pub(me), hand: me.hand.map(c => { const def = LCARDS[c.defId];
+      return { uid: c.uid, defId: c.defId, type: def.type, name: def.name, icon: def.icon, color: def.color, cost: def.cost,
+        atk: def.atk, hp: def.hp, ward: !!def.ward, rush: !!def.rush, needsTarget: def.needsTarget || null, text: def.text }; }) } : null,
+    foe: pub(foe), lastPlay: g.lastPlay, log: g.log.slice(-40), foeJoined: g.players.length > 1, foeConnected: true };
+}
+</script>
+
+<script>
+// ===== UI（CPU／オンライン共通レンダラ）＋ オンライン通信 =====
+const $ = (id) => document.getElementById(id);
+let mode = null;           // 'cpu' | 'online'
+let lg = null;             // CPU用ローカルゲーム
+let ws = null;
+let cur = null;            // 現在の表示状態（viewFor 形式）
+let mySeat = 0;
+let roomCode = null;
+let sel = null;            // { kind:'attacker', uid } | { kind:'spell', handIndex, needsTarget }
+let resultShown = false;
+let aiTimer = null;
+
+function show(id) {
+  ['screen-mode', 'screen-online', 'screen-game'].forEach(s => $(s).classList.toggle('hidden', s !== id));
+}
+function toast(msg) {
+  const t = $('toast');
+  t.textContent = msg;
+  t.classList.remove('hidden');
+  clearTimeout(t._tm);
+  t._tm = setTimeout(() => t.classList.add('hidden'), 2600);
+}
+function clearSel() { sel = null; }
+
+// ---- アクションのディスパッチ（モードで送信先を切り替え） ----
+function doPlay(handIndex, target) {
+  clearSel();
+  if (mode === 'online') { wsSend({ type: 'play', handIndex, target: target || null }); }
+  else {
+    const r = LG_playCard(lg, 0, handIndex, target || null);
+    if (r && r.error) { toast(r.error); }
+    afterLocal();
+  }
+}
+function doAttack(attackerUid, target) {
+  clearSel();
+  if (mode === 'online') { wsSend({ type: 'attack', attackerUid, target }); }
+  else {
+    const r = LG_attack(lg, 0, attackerUid, target);
+    if (r && r.error) { toast(r.error); }
+    afterLocal();
+  }
+}
+function doEndTurn() {
+  clearSel();
+  if (mode === 'online') { wsSend({ type: 'end' }); }
+  else {
+    const r = LG_endTurn(lg, 0);
+    if (r && r.error) { toast(r.error); return; }
+    afterLocal();
+    scheduleAi();
+  }
+}
+function afterLocal() {
+  if (!lg) return;
+  cur = LG_viewFor(lg, 0);
+  render();
+}
+
+// ---- レンダリング ----
+function minionHtml(f, side) {
+  const badges = [];
+  if (f.ward) badges.push('<span class="badge ward">守護</span>');
+  if (f.rush) badges.push('<span class="badge rush">疾走</span>');
+  if (f.sick) badges.push('<span class="badge sick">💤</span>');
+  let cls = 'minion';
+  if (side === 'me' && cur.isMyTurn && f.canAttack && !sel) cls += ' can-attack';
+  if (sel && sel.kind === 'attacker' && sel.uid === f.uid) cls += ' selected';
+  if (sel) {
+    if (sel.kind === 'attacker' && side === 'foe') {
+      const wards = cur.foe.field.filter(x => x.ward);
+      if (!wards.length || f.ward) cls += ' targetable';
+    }
+    if (sel.kind === 'spell' && sel.needsTarget === 'foe' && side === 'foe') cls += ' targetable';
+    if (sel.kind === 'spell' && sel.needsTarget === 'own' && side === 'me') cls += ' targetable';
+  }
+  return `<div class="slot"><div class="${cls}" data-side="${side}" data-uid="${f.uid}" style="border-top:4px solid ${f.color};">
+    <span class="badges">${badges.join('')}</span>
+    <span class="ic">${f.icon}</span><div class="nm">${f.name}</div>
+    <div class="stats"><span class="a">⚔${f.atk}</span><span class="h${f.hp < f.maxHp ? ' hurt' : ''}">❤${f.hp}</span></div>
+  </div></div>`;
+}
+function fieldHtml(field, side) {
+  if (!field.length) return '<span class="empty-note">フォロワーはいません</span>';
+  return field.map(f => minionHtml(f, side)).join('');
+}
+function render() {
+  if (!cur) return;
+  const st = cur;
+  // 相手
+  if (st.foe) {
+    $('foe-name').textContent = st.foe.name;
+    $('foe-tag').textContent = mode === 'online' ? '相手' : 'CPU';
+    $('foe-status').textContent = (mode === 'online' && st.foeJoined && !st.foeConnected) ? '（切断中…）' : '';
+    $('foe-hpfill').style.width = Math.max(0, st.foe.hp / st.foe.maxhp * 100) + '%';
+    $('foe-hpbar').classList.toggle('low', st.foe.hp <= 6);
+    $('foe-hptext').textContent = `HP ${st.foe.hp} / ${st.foe.maxhp}　エネルギー ${st.foe.energy}/${st.foe.maxEnergy}`;
+    $('foe-deck').textContent = `山札 ${st.foe.deckCount}枚`;
+    $('foe-handbacks').innerHTML = Array.from({ length: st.foe.handCount }, () => '<div class="cardback"></div>').join('');
+    $('foe-field').innerHTML = fieldHtml(st.foe.field, 'foe');
+    const foePanelTargetable = sel && sel.kind === 'attacker' && st.foe.field.every(f => !f.ward);
+    $('panel-foe').classList.toggle('targetable', !!foePanelTargetable);
+  }
+  // 自分
+  $('me-name').textContent = st.me.name;
+  $('me-tag').textContent = 'あなた';
+  $('me-status').textContent = st.isMyTurn ? 'あなたのターン' : '';
+  $('me-hpfill').style.width = Math.max(0, st.me.hp / st.me.maxhp * 100) + '%';
+  $('me-hpbar').classList.toggle('low', st.me.hp <= 6);
+  $('me-hptext').textContent = `HP ${st.me.hp} / ${st.me.maxhp}`;
+  $('me-deck').textContent = `山札 ${st.me.deckCount}枚　場 ${st.me.field.length}/5`;
+  $('crystals').innerHTML = Array.from({ length: st.me.maxEnergy }, (_, i) => `<div class="cry${i < st.me.energy ? ' on' : ''}"></div>`).join('');
+  $('energy-num').textContent = `エネルギー ${st.me.energy}/${st.me.maxEnergy}`;
+  $('my-field').innerHTML = fieldHtml(st.me.field, 'me');
+  $('panel-me').classList.toggle('turn-now', st.isMyTurn);
+  $('panel-foe').classList.toggle('turn-now', st.phase === 'playing' && !st.isMyTurn);
+  // 中央
+  $('turn-num').textContent = `ターン ${st.turnNumber}`;
+  $('turn-who').textContent = st.phase === 'over' ? '対戦終了' : (st.isMyTurn ? 'あなたのターン' : '相手のターン');
+  $('lastplay').textContent = st.lastPlay ? `${st.lastPlay.who}：「${st.lastPlay.name}」` : '';
+  // 手札
+  $('hand').innerHTML = st.me.hand.map((c, i) => {
+    const playable = st.isMyTurn && c.cost <= st.me.energy && (c.type !== 'follower' || st.me.field.length < 5);
+    const kw = c.type === 'follower'
+      ? [c.ward ? '<span class="kw" style="background:var(--ward)">守護</span>' : '', c.rush ? '<span class="kw" style="background:var(--rush)">疾走</span>' : ''].join(' ')
+      : '<span class="kw" style="background:#666">スペル</span>';
+    const stats = c.type === 'follower' ? `<div class="st"><span class="a">⚔${c.atk}</span> <span class="h">❤${c.hp}</span> ${kw}</div>` : `<div class="st">${kw}</div>`;
+    return `<div class="card${playable ? ' playable' : ''}${!playable ? ' disabled' : ''}${sel && sel.kind === 'spell' && sel.handIndex === i ? ' selected' : ''}" data-hand="${i}" style="border-top:5px solid ${c.color};">
+      <span class="cost">${c.cost}</span><span class="ic">${c.icon}</span>
+      <div class="nm">${c.name}</div>${stats}<div class="tx">${c.text}</div></div>`;
+  }).join('');
+  $('btn-endturn').disabled = !st.isMyTurn || st.phase !== 'playing';
+  // ヒント
+  let hint = '';
+  if (sel && sel.kind === 'attacker') hint = '攻撃対象を選んでください（相手フォロワーか相手リーダー）';
+  else if (sel && sel.kind === 'spell') hint = sel.needsTarget === 'foe' ? '対象の相手フォロワーを選んでください' : '対象の自分のフォロワーを選んでください';
+  else if (st.isMyTurn && st.phase === 'playing') hint = '緑の枠のフォロワーは攻撃できます。カードをタップで使用。';
+  $('hintbar').textContent = hint;
+  $('btn-cancel-sel').classList.toggle('hidden', !sel);
+  // ログ
+  $('log').innerHTML = st.log.map(l => `<li class="${l.mark ? 'mark' : ''}">${l.text}</li>`).join('');
+  $('log').parentElement.scrollTop = $('log').parentElement.scrollHeight;
+  bindBattleClicks();
+  // オンラインの相手待ち
+  if (mode === 'online') {
+    const waiting = st.phase === 'waiting' || !st.foeJoined;
+    $('overlay-wait').classList.toggle('hidden', !waiting);
+    if (waiting && roomCode) $('wait-code').textContent = roomCode;
+    $('room-note').textContent = roomCode ? `ルームコード： ${roomCode}` : '';
+  }
+  // 結果
+  if (st.phase === 'over' && !resultShown) {
+    resultShown = true;
+    const iWon = st.winner === st.youAre;
+    $('result-winner').textContent = iWon ? '🏆 あなたの勝ち！' : `${st.winnerName} の勝ち`;
+    $('result-detail').textContent = iWon ? '相手リーダーのHPを0にしました。' : 'リーダーのHPが0になりました。';
+    $('overlay-result').classList.remove('hidden');
+  }
+  if (st.phase !== 'over') { resultShown = false; $('overlay-result').classList.add('hidden'); }
+}
+
+function bindBattleClicks() {
+  document.querySelectorAll('#hand .card').forEach(el => {
+    el.onclick = () => onHandClick(parseInt(el.dataset.hand, 10));
+  });
+  document.querySelectorAll('#my-field .minion').forEach(el => {
+    el.onclick = () => onMinionClick('me', parseInt(el.dataset.uid, 10));
+  });
+  document.querySelectorAll('#foe-field .minion').forEach(el => {
+    el.onclick = () => onMinionClick('foe', parseInt(el.dataset.uid, 10));
+  });
+  $('panel-foe').onclick = (e) => {
+    if (e.target.closest('.minion')) return;
+    if (sel && sel.kind === 'attacker') doAttack(sel.uid, { type: 'leader' });
+  };
+}
+function onHandClick(i) {
+  if (!cur || !cur.isMyTurn || cur.phase !== 'playing') return;
+  const c = cur.me.hand[i];
+  if (!c) return;
+  if (c.cost > cur.me.energy) { toast('エネルギーが足りません'); return; }
+  if (c.type === 'follower' && cur.me.field.length >= 5) { toast('場が満員です（最大5体）'); return; }
+  if (c.needsTarget) {
+    const hasTarget = c.needsTarget === 'foe' ? cur.foe.field.length > 0 : cur.me.field.length > 0;
+    if (!hasTarget) { toast('対象のフォロワーがいません'); return; }
+    sel = { kind: 'spell', handIndex: i, needsTarget: c.needsTarget };
+    render();
+    return;
+  }
+  doPlay(i, null);
+}
+function onMinionClick(side, uid) {
+  if (!cur || cur.phase !== 'playing') return;
+  if (sel && sel.kind === 'attacker') {
+    if (side === 'foe') { doAttack(sel.uid, { type: 'follower', uid }); return; }
+    // 自分の別フォロワーを選んだら攻撃者を切り替え
+    const f = cur.me.field.find(x => x.uid === uid);
+    if (f && f.canAttack && cur.isMyTurn) { sel = { kind: 'attacker', uid }; render(); }
+    return;
+  }
+  if (sel && sel.kind === 'spell') {
+    if (sel.needsTarget === 'foe' && side === 'foe') { doPlay(sel.handIndex, { side: 'foe', uid }); return; }
+    if (sel.needsTarget === 'own' && side === 'me') { doPlay(sel.handIndex, { side: 'own', uid }); return; }
+    toast(sel.needsTarget === 'foe' ? '相手のフォロワーを選んでください' : '自分のフォロワーを選んでください');
+    return;
+  }
+  if (side === 'me' && cur.isMyTurn) {
+    const f = cur.me.field.find(x => x.uid === uid);
+    if (!f) return;
+    if (f.sick) { toast('出したターンは攻撃できません（召喚酔い）'); return; }
+    if (!f.canAttack) { toast('このフォロワーはすでに攻撃しました'); return; }
+    sel = { kind: 'attacker', uid };
+    render();
+  }
+}
+
+// ---- CPU AI（簡易）: 出せるフォロワーを出し、除去を使い、攻撃できるフォロワーで攻撃する ----
+function scheduleAi() {
+  clearTimeout(aiTimer);
+  aiTimer = setTimeout(aiStep, 600);
+}
+function aiStep() {
+  if (mode !== 'cpu' || !lg || lg.phase !== 'playing' || lg.turn !== 1) return;
+  const me = lg.players[1], foe = lg.players[0];
+  const affordable = (c) => LCARDS[c.defId].cost <= me.energy;
+  // 1) フォロワーを出す（コスト高い順）
+  let idx = -1, best = -1;
+  me.hand.forEach((c, i) => { const d = LCARDS[c.defId]; if (d.type === 'follower' && affordable(c) && d.cost > best && me.field.length < 5) { best = d.cost; idx = i; } });
+  if (idx >= 0) { LG_playCard(lg, 1, idx, null); afterLocal(); return scheduleAi(); }
+  // 2) 除去スペル（守護を優先、次に攻撃力の高い相手）
+  const pickTarget = (maxHp) => {
+    let cands = foe.field.filter(f => maxHp == null || f.hp <= maxHp);
+    if (!cands.length) return null;
+    const wards = cands.filter(f => LCARDS[f.defId].ward);
+    if (wards.length) cands = wards;
+    return cands.reduce((a, b) => (b.atk > a.atk ? b : a));
+  };
+  idx = me.hand.findIndex(c => c.defId === 'execution' && affordable(c));
+  if (idx >= 0 && foe.field.length) { const t = pickTarget(null); LG_playCard(lg, 1, idx, { side: 'foe', uid: t.uid }); afterLocal(); return scheduleAi(); }
+  idx = me.hand.findIndex(c => c.defId === 'fireball' && affordable(c));
+  if (idx >= 0) { const t = pickTarget(3); if (t) { LG_playCard(lg, 1, idx, { side: 'foe', uid: t.uid }); afterLocal(); return scheduleAi(); } }
+  idx = me.hand.findIndex(c => c.defId === 'meteor' && affordable(c));
+  if (idx >= 0 && foe.field.length >= 2) { LG_playCard(lg, 1, idx, null); afterLocal(); return scheduleAi(); }
+  // 3) その他スペル
+  idx = me.hand.findIndex(c => c.defId === 'smite' && affordable(c));
+  if (idx >= 0) { LG_playCard(lg, 1, idx, null); afterLocal(); return scheduleAi(); }
+  idx = me.hand.findIndex(c => c.defId === 'powerup' && affordable(c));
+  if (idx >= 0 && me.field.length) {
+    const t = me.field.reduce((a, b) => (b.atk > a.atk ? b : a));
+    LG_playCard(lg, 1, idx, { side: 'own', uid: t.uid }); afterLocal(); return scheduleAi();
+  }
+  idx = me.hand.findIndex(c => c.defId === 'heal' && affordable(c));
+  if (idx >= 0 && me.hp <= 10) { LG_playCard(lg, 1, idx, null); afterLocal(); return scheduleAi(); }
+  // 4) 攻撃（守護がいれば守護へ。いなければ有利な戦闘を優先し、残りはリーダーへ）
+  const attacker = me.field.find(f => !f.sick && !f.attacked && f.atk > 0);
+  if (attacker) {
+    const wards = foe.field.filter(f => LCARDS[f.defId].ward);
+    let target;
+    if (wards.length) target = { type: 'follower', uid: wards[0].uid };
+    else {
+      const free = foe.field.filter(t => attacker.atk >= t.hp && t.atk < attacker.hp).sort((a, b) => b.atk - a.atk)[0];
+      const trade = foe.field.filter(t => attacker.atk >= t.hp && t.atk >= 4).sort((a, b) => b.atk - a.atk)[0];
+      if (free) target = { type: 'follower', uid: free.uid };
+      else if (trade) target = { type: 'follower', uid: trade.uid };
+      else target = { type: 'leader' };
+    }
+    LG_attack(lg, 1, attacker.uid, target);
+    afterLocal();
+    return scheduleAi();
+  }
+  // 5) ターン終了
+  LG_endTurn(lg, 1);
+  afterLocal();
+}
+
+// ---- モード開始 ----
+function startCpu() {
+  mode = 'cpu';
+  mySeat = 0;
+  roomCode = null;
+  resultShown = false;
+  clearSel();
+  lg = LG_newGame('あなた');
+  LG_startGame(lg, 'CPU');
+  show('screen-game');
+  $('btn-leave').textContent = 'モード選択へ';
+  afterLocal();
+}
+
+// ---- オンライン ----
+function wsUrl() {
+  const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  return `${proto}//${location.host}`;
+}
+function wsSend(o) { if (ws && ws.readyState === 1) ws.send(JSON.stringify(o)); }
+function setStatus(t) { $('online-status').textContent = t; }
+function connect(onOpen) {
+  if (ws) { try { ws.close(); } catch (e) {} }
+  ws = new WebSocket(wsUrl());
+  ws.onopen = () => { setStatus('接続しました'); if (onOpen) onOpen(); };
+  ws.onmessage = (ev) => {
+    let m; try { m = JSON.parse(ev.data); } catch (e) { return; }
+    if (m.type === 'joined') {
+      roomCode = m.code;
+      mySeat = m.seat;
+      try { localStorage.setItem('mb_online', JSON.stringify({ code: m.code, playerId: m.playerId })); } catch (e) {}
+      cur = m.state;
+      show('screen-game');
+      $('btn-leave').textContent = '退出';
+      resultShown = false;
+      render();
+    } else if (m.type === 'state') {
+      cur = m.state;
+      if (cur.phase !== 'over') $('overlay-result').classList.add('hidden');
+      render();
+    } else if (m.type === 'error') {
+      toast(m.message);
+      setStatus(m.message);
+    }
+  };
+  ws.onclose = () => setStatus('接続が切れました。再接続するにはロビーの「前の対戦に戻る」を使ってください。');
+  ws.onerror = () => setStatus('接続エラーが発生しました');
+}
+function leaveOnline() {
+  if (ws) { try { ws.close(); } catch (e) {} ws = null; }
+  roomCode = null;
+  cur = null;
+  $('overlay-wait').classList.add('hidden');
+  $('overlay-result').classList.add('hidden');
+  show('screen-mode');
+}
+function refreshReconnectBox() {
+  let saved = null;
+  try { saved = JSON.parse(localStorage.getItem('mb_online') || 'null'); } catch (e) {}
+  $('oreconnect-box').classList.toggle('hidden', !saved);
+  if (saved) $('oreconnect-code').textContent = saved.code;
+}
+
+// ---- イベント配線 ----
+$('btn-mode-cpu').onclick = () => startCpu();
+$('btn-mode-online').onclick = () => { show('screen-online'); refreshReconnectBox(); setStatus(''); };
+$('btn-online-back').onclick = () => show('screen-mode');
+$('btn-create-room').onclick = () => {
+  const name = $('oname').value.trim() || 'プレイヤー1';
+  setStatus('接続中…');
+  connect(() => wsSend({ type: 'create', name }));
+};
+$('btn-join-room').onclick = () => {
+  const code = $('ocode').value.trim().toUpperCase();
+  if (code.length !== 4) { toast('ルームコードは4文字です'); return; }
+  const name = $('oname').value.trim() || 'プレイヤー2';
+  setStatus('接続中…');
+  connect(() => wsSend({ type: 'join', code, name }));
+};
+$('btn-reconnect').onclick = () => {
+  let saved = null;
+  try { saved = JSON.parse(localStorage.getItem('mb_online') || 'null'); } catch (e) {}
+  if (!saved) return;
+  setStatus('再接続中…');
+  connect(() => wsSend({ type: 'reconnect', code: saved.code, playerId: saved.playerId }));
+};
+$('btn-forget-room').onclick = () => {
+  try { localStorage.removeItem('mb_online'); } catch (e) {}
+  refreshReconnectBox();
+};
+$('btn-endturn').onclick = () => doEndTurn();
+$('btn-cancel-sel').onclick = () => { clearSel(); render(); };
+$('btn-surrender').onclick = () => $('overlay-surrender').classList.remove('hidden');
+$('btn-surrender-no').onclick = () => $('overlay-surrender').classList.add('hidden');
+$('btn-surrender-yes').onclick = () => {
+  $('overlay-surrender').classList.add('hidden');
+  clearSel();
+  if (mode === 'online') wsSend({ type: 'surrender' });
+  else { LG_surrender(lg, 0); afterLocal(); }
+};
+$('btn-leave').onclick = () => {
+  if (mode === 'online') leaveOnline();
+  else { lg = null; cur = null; show('screen-mode'); }
+};
+$('btn-wait-leave').onclick = () => leaveOnline();
+$('btn-rematch').onclick = () => {
+  $('overlay-result').classList.add('hidden');
+  resultShown = false;
+  if (mode === 'online') wsSend({ type: 'restart' });
+  else { LG_restart(lg); afterLocal(); }
+};
+$('btn-back-mode').onclick = () => {
+  $('overlay-result').classList.add('hidden');
+  if (mode === 'online') leaveOnline();
+  else { lg = null; cur = null; show('screen-mode'); }
+};
+const openRules = () => $('overlay-rules').classList.remove('hidden');
+$('btn-rules-top').onclick = openRules;
+$('btn-rules2').onclick = openRules;
+$('btn-rules-close').onclick = () => $('overlay-rules').classList.add('hidden');
+</script>
+</body>
+</html>
