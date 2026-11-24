@@ -88,6 +88,25 @@
   .log ul{margin:0; padding-left:18px; font-size:.8rem; line-height:1.55;}
   .log li.mark{font-weight:800; color:var(--accent);}
 
+  /* ===== カード編集・デッキ構築 ===== */
+  .ed-card{background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:12px; margin-bottom:12px;}
+  .ed-head{display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:8px;}
+  .ed-head .ed-ic{font-size:1.5rem;}
+  .ed-head .ed-nm{font-weight:800;}
+  .ed-deck{margin-left:auto; display:flex; align-items:center; gap:6px; font-size:.85rem;}
+  .ed-deck .step{width:30px; height:30px; border-radius:8px; border:1px solid var(--line); background:var(--panel2); color:var(--text); font-weight:800; cursor:pointer;}
+  .ed-deck .cnt{font-weight:800; min-width:1.2em; text-align:center;}
+  .ed-grid{display:grid; grid-template-columns:1fr 1fr; gap:8px 10px;}
+  .ed-grid label{display:block; font-size:.72rem; color:var(--muted);}
+  .ed-grid input[type="text"], .ed-grid input[type="number"], .ed-grid select{width:100%; padding:7px 8px; border-radius:8px; border:1px solid var(--line); background:var(--bg); color:var(--text); font-size:.9rem; margin-top:2px;}
+  .ed-grid input[type="color"]{width:100%; height:34px; padding:2px; border-radius:8px; border:1px solid var(--line); background:var(--bg); margin-top:2px;}
+  .ed-grid .wide{grid-column:1 / -1;}
+  .ed-grid .chk{display:flex; align-items:center; gap:6px; font-size:.85rem; color:var(--text); padding-top:14px;}
+  .ed-grid .chk input{width:18px; height:18px;}
+  #editor-io{width:100%; margin-top:10px; padding:8px; border-radius:8px; border:1px solid var(--line); background:var(--bg); color:var(--text); font-size:.75rem;}
+  .deck-msg-bad{color:var(--bad); font-weight:700;}
+  .deck-msg-ok{color:var(--good); font-weight:700;}
+
   /* ===== オーバーレイ ===== */
   .overlay{position:fixed; inset:0; background:rgba(8,9,16,.78); display:flex; align-items:center; justify-content:center; padding:18px; z-index:50;}
   .overlay .box{background:var(--panel); border:1px solid var(--line); border-radius:16px; padding:22px; max-width:420px; width:100%; text-align:center;}
@@ -114,6 +133,10 @@
         <span class="ic">🌐</span>
         <span><span class="t">オンライン対戦</span><div class="d">ルームコードで離れた相手と対戦します。</div></span>
       </button>
+      <button type="button" class="mode-card" id="btn-mode-editor">
+        <span class="ic">🛠️</span>
+        <span><span class="t">カード編集・デッキ</span><div class="d">カードを編集して、自分だけの30枚デッキを保存できます。</div></span>
+      </button>
     </div>
     <div style="text-align:center; margin-top:16px;">
       <button type="button" class="btn" id="btn-rules-top">📖 ルール</button>
@@ -124,6 +147,7 @@
   <section id="screen-online" class="hidden">
     <div style="margin-bottom:10px;"><button type="button" class="btn small" id="btn-online-back">← モード選択に戻る</button></div>
     <h1 style="font-size:1.3rem;">🌐 オンライン対戦</h1>
+    <p class="note" id="lobby-deck-note" style="margin-top:0;">使用デッキ：標準デッキ</p>
     <div class="online-box">
       <h3>ルームを作る</h3>
       <div class="field"><label for="oname">あなたの名前</label><input id="oname" type="text" maxlength="12" placeholder="例：プレイヤー1"></div>
@@ -136,13 +160,36 @@
     </div>
     <div class="online-box hidden" id="oreconnect-box">
       <h3>前の対戦に戻る</h3>
-      <p class="note" style="margin-top:0;">回線が切れた対戦の続きに参加できます（ルーム <b id="oreconnect-code"></b>）。</p>
+      <p class="note" style="margin-top:0;">対戦中に回線が切れたときだけ、ここから続きに参加できます（ルーム <b id="oreconnect-code"></b>）。新しく対戦を始める場合は、上の「ルームを作る」か「コードで参加する」を使ってください。</p>
       <div style="display:flex; gap:8px; flex-wrap:wrap;">
         <button type="button" class="btn" id="btn-reconnect">再接続する</button>
         <button type="button" class="btn" id="btn-forget-room">記録を消す</button>
       </div>
     </div>
     <p class="conn-note" id="online-status"></p>
+  </section>
+
+  <!-- カード編集・デッキ構築 -->
+  <section id="screen-editor" class="hidden">
+    <div style="margin-bottom:10px;"><button type="button" class="btn small" id="btn-editor-back">← モード選択に戻る</button></div>
+    <h1 style="font-size:1.3rem;">🛠️ カード編集・デッキ</h1>
+    <p class="note">カードの名前・アイコン・コスト・能力と効果を編集し、30枚ちょうどのデッキを組んで保存できます（同じカードは最大3枚まで）。保存したデッキは、CPU対戦ではあなた専用に、オンライン対戦では各自の持ち込みとして使われます。編集していない場合は標準カード・標準デッキで遊べます。</p>
+    <div id="editor-list"></div>
+    <div class="online-box">
+      <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+        <b id="deck-total">デッキ合計 0 / 30枚</b>
+        <span class="note" id="deck-msg"></span>
+      </div>
+      <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:12px;">
+        <button type="button" class="btn primary" id="btn-editor-save">保存する</button>
+        <button type="button" class="btn" id="btn-editor-reset">標準に戻す</button>
+        <button type="button" class="btn" id="btn-editor-export">書き出し</button>
+        <button type="button" class="btn" id="btn-editor-import">読み込み</button>
+        <input type="file" id="editor-file" accept="application/json,.json" class="hidden">
+      </div>
+      <textarea id="editor-io" rows="5" placeholder="書き出し結果がここに出ます。読み込みはファイルを選ぶか、ここにJSONを貼って「読み込み」を押してください。"></textarea>
+      <p class="note" id="editor-status"></p>
+    </div>
   </section>
 
   <!-- 対戦画面（CPU／オンライン共通） -->
@@ -193,14 +240,14 @@
   </section>
 </div>
 
-<!-- 相手待ち（オンライン） -->
+<!-- 相手待ち（オンライン：ルームコードを大きく表示する待機画面） -->
 <div class="overlay hidden" id="overlay-wait">
   <div class="box">
     <h2>ルームを作成しました</h2>
     <p style="margin:0;">このコードを相手に伝えてください</p>
     <div class="room-code-big" id="wait-code">----</div>
-    <p class="note">相手が参加すると対戦が始まります。</p>
-    <div class="btnrow"><button type="button" class="btn" id="btn-wait-leave">やめる（モード選択へ）</button></div>
+    <p class="note">相手がこのコードを入力して参加すると、対戦が始まります。</p>
+    <div class="btnrow"><button type="button" class="btn primary" id="btn-copy-code">コードをコピー</button><button type="button" class="btn" id="btn-wait-leave">やめる（モード選択へ）</button></div>
   </div>
 </div>
 
@@ -241,6 +288,7 @@
       <p>・<b>守護</b>のフォロワーがいる間、相手はリーダーや他のフォロワーを攻撃できず、守護を攻撃しなければならない。</p>
       <p>・<b>ファンファーレ</b>は場に出たとき、<b>ラストワード</b>は破壊されたときに発動する。</p>
       <p>・山札が尽きたら捨て札をシャッフルして使い回す。それも無いと引くたびに1ダメージ。</p>
+      <p>・「カード編集・デッキ」で自分だけのカードと30枚デッキを作って持ち込むこともできます（オンライン対戦では各自が自分のデッキを持ち込みます）。</p>
     </div>
     <div class="btnrow"><button type="button" class="btn primary" id="btn-rules-close">閉じる</button></div>
   </div>
@@ -250,6 +298,7 @@
 
 <script>
 // ===== ローカルエンジン（CPU対戦用）: サーバー側 game.js と同じルールの移植 =====
+// プレイヤーごとに自分のカードセットを持つ（CPU対戦ではプレイヤー=保存デッキ、CPU=標準）。
 const LCARDS = {
   slime:    { type: 'follower', name: 'スライム', icon: '🟢', color: '#58a05c', cost: 1, atk: 1, hp: 2, text: 'ぷにぷにした体。' },
   goblin:   { type: 'follower', name: 'ゴブリン', icon: '👺', color: '#7a9e43', cost: 1, atk: 2, hp: 1, text: '攻撃的だが打たれ弱い。' },
@@ -279,21 +328,149 @@ const LDECK = [
   'mage', 'treant', 'unicorn', 'golem', 'golem', 'phoenix', 'dragon',
   'fireball', 'fireball', 'meteor', 'smite', 'heal', 'powerup', 'execution',
 ];
+const L_TOKEN = 'slime_token';
+const L_DECK_SIZE = 30, L_MAX_COPIES = 3, L_MAX_KINDS = 64;
 const L_START_HP = 20, L_START_HAND = 4, L_HAND_LIMIT = 9, L_FIELD_LIMIT = 5, L_MAX_ENERGY = 10;
 let lUid = 1;
 function lShuffle(a) { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
-function lMakePlayer(name) {
-  return { name, hp: L_START_HP, maxhp: L_START_HP, energy: 0, maxEnergy: 0,
-    deck: lShuffle(LDECK.map(d => ({ uid: lUid++, defId: d }))), hand: [], discard: [], field: [] };
+
+// ===== カードセット＋デッキの検証・サニタイズ（サーバー側 game.js と同じルールの移植） =====
+function clampIntL(v, min, max, fb) { const n = parseInt(v, 10); if (Number.isNaN(n)) return fb || 0; return Math.max(min, Math.min(max, n)); }
+function sanitizeFxL(raw, kind) {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+  const fx = {};
+  const dmgLeader = clampIntL(raw.dmgLeader, 0, 10, 0); if (dmgLeader) fx.dmgLeader = dmgLeader;
+  const healLeader = clampIntL(raw.healLeader, 0, 10, 0); if (healLeader) fx.healLeader = healLeader;
+  const draw = clampIntL(raw.draw, 0, 3, 0); if (draw) fx.draw = draw;
+  const dmgAllFoe = clampIntL(raw.dmgAllFoe, 0, 10, 0); if (dmgAllFoe) fx.dmgAllFoe = dmgAllFoe;
+  if (raw.summon === L_TOKEN) fx.summon = L_TOKEN;
+  if (kind === 'spell') {
+    const dmgTarget = clampIntL(raw.dmgTarget, 0, 15, 0); if (dmgTarget) fx.dmgTarget = dmgTarget;
+    if (raw.destroyTarget === true) fx.destroyTarget = true;
+    if (Array.isArray(raw.buffTarget)) fx.buffTarget = [clampIntL(raw.buffTarget[0], 0, 10, 0), clampIntL(raw.buffTarget[1], 0, 10, 0)];
+  }
+  return Object.keys(fx).length ? fx : null;
 }
-function LG_newGame(name1) {
-  const g = { phase: 'waiting', players: [lMakePlayer(name1)], turn: 0, turnCount: 0, winner: null, lastPlay: null, log: [] };
+const graphemeSegL = (typeof Intl !== 'undefined' && Intl.Segmenter)
+  ? new Intl.Segmenter('ja', { granularity: 'grapheme' }) : null;
+function firstGraphemeL(s) {
+  if (!s) return '';
+  if (graphemeSegL) { for (const part of graphemeSegL.segment(s)) return part.segment; return ''; }
+  return [...s][0] || '';
+}
+function sanitizeCardL(raw, id) {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+  const std = LCARDS[id];
+  const type = (raw.type === 'follower' || raw.type === 'spell') ? raw.type : (std ? std.type : null);
+  if (!type) return null;
+  const name = typeof raw.name === 'string' ? raw.name.slice(0, 24).trim() : '';
+  if (!name) return null;
+  let icon = '';
+  if (typeof raw.icon === 'string' && raw.icon.trim()) icon = firstGraphemeL(raw.icon.trim());
+  if (!icon) icon = std ? std.icon : firstGraphemeL(name);
+  const color = (typeof raw.color === 'string' && /^#[0-9a-fA-F]{6}$/.test(raw.color)) ? raw.color : (std ? std.color : '#777777');
+  const text = typeof raw.text === 'string' ? raw.text.slice(0, 80) : '';
+  const cost = clampIntL(raw.cost, 0, 10, std ? std.cost : 2);
+  if (type === 'follower') {
+    const def = { type, name, icon, color, cost,
+      atk: clampIntL(raw.atk, 0, 15, std && std.type === 'follower' ? std.atk : 1),
+      hp: clampIntL(raw.hp, 1, 20, std && std.type === 'follower' ? std.hp : 1), text };
+    if (raw.ward === true) def.ward = true;
+    if (raw.rush === true) def.rush = true;
+    const fanfare = sanitizeFxL(raw.fanfare, 'follower'); if (fanfare) def.fanfare = fanfare;
+    const lastwords = sanitizeFxL(raw.lastwords, 'follower'); if (lastwords) def.lastwords = lastwords;
+    return def;
+  }
+  const fx = sanitizeFxL(raw.fx, 'spell') || {};
+  const def = { type, name, icon, color, cost, fx, text };
+  if (fx.dmgTarget || fx.destroyTarget) def.needsTarget = 'foe';
+  else if (fx.buffTarget) def.needsTarget = 'own';
+  return def;
+}
+function sanitizeCardSetL(rawCards) {
+  if (!rawCards || typeof rawCards !== 'object' || Array.isArray(rawCards)) return null;
+  const clean = {};
+  let idx = 0;
+  for (const rawId of Object.keys(rawCards)) {
+    if (Object.keys(clean).length >= L_MAX_KINDS) break;
+    if (rawId === L_TOKEN) continue;
+    const card = sanitizeCardL(rawCards[rawId], rawId);
+    if (!card) continue;
+    let id = /^[a-zA-Z0-9_-]{1,64}$/.test(rawId) ? rawId : `custom_${idx++}`;
+    if (clean[id]) id = `${id}_${idx++}`;
+    clean[id] = card;
+  }
+  if (Object.keys(clean).length === 0) return null;
+  clean[L_TOKEN] = { ...LCARDS[L_TOKEN] };
+  return clean;
+}
+function validateDeckL(cards, rawDeck) {
+  if (!cards || !Array.isArray(rawDeck)) return null;
+  if (rawDeck.length !== L_DECK_SIZE) return null;
+  const counts = {};
+  for (const id of rawDeck) {
+    if (typeof id !== 'string' || id === L_TOKEN || !cards[id]) return null;
+    counts[id] = (counts[id] || 0) + 1;
+    if (counts[id] > L_MAX_COPIES) return null;
+  }
+  return rawDeck.slice();
+}
+function sameFxL(a, b) {
+  const fa = a || {}, fb = b || {};
+  const ka = Object.keys(fa), kb = Object.keys(fb);
+  if (ka.length !== kb.length) return false;
+  return ka.every(k => JSON.stringify(fa[k]) === JSON.stringify(fb[k]));
+}
+function sameCardL(a, b) {
+  if (!a || !b) return false;
+  if (a.type !== b.type || a.name !== b.name || a.icon !== b.icon || a.color !== b.color || a.cost !== b.cost || a.text !== b.text) return false;
+  if (a.type === 'follower') {
+    if (a.atk !== b.atk || a.hp !== b.hp || !!a.ward !== !!b.ward || !!a.rush !== !!b.rush) return false;
+    return sameFxL(a.fanfare, b.fanfare) && sameFxL(a.lastwords, b.lastwords);
+  }
+  if ((a.needsTarget || null) !== (b.needsTarget || null)) return false;
+  return sameFxL(a.fx, b.fx);
+}
+function isStandardLoadoutL(cards, deckList) {
+  const ids = Object.keys(LCARDS);
+  if (Object.keys(cards).length !== ids.length) return false;
+  for (const id of ids) { if (!sameCardL(cards[id], LCARDS[id])) return false; }
+  if (deckList.length !== LDECK.length) return false;
+  const count = (list, id) => list.filter(x => x === id).length;
+  return ids.every(id => count(deckList, id) === count(LDECK, id));
+}
+function resolveLoadoutL(raw) {
+  const standard = () => ({ cards: LCARDS, deckList: LDECK.slice(), custom: false, fallback: false });
+  if (raw == null) return standard();
+  if (typeof raw !== 'object' || Array.isArray(raw)) return { ...standard(), fallback: true };
+  const cards = sanitizeCardSetL(raw.cards);
+  const deckList = cards ? validateDeckL(cards, raw.deck) : null;
+  if (!cards || !deckList) return { ...standard(), fallback: true };
+  return { cards, deckList, custom: !isStandardLoadoutL(cards, deckList), fallback: false };
+}
+function asLoadoutL(x) {
+  if (x && typeof x === 'object' && x.cards && Array.isArray(x.deckList)) {
+    return { cards: x.cards, deckList: x.deckList, custom: !!x.custom, fallback: !!x.fallback };
+  }
+  return resolveLoadoutL(x);
+}
+
+function lMakePlayer(name, loadout) {
+  const lo = asLoadoutL(loadout);
+  return { name, cards: lo.cards, customDeck: lo.custom, hp: L_START_HP, maxhp: L_START_HP, energy: 0, maxEnergy: 0,
+    deck: lShuffle(lo.deckList.map(d => ({ uid: lUid++, defId: d }))), hand: [], discard: [], field: [] };
+}
+function LG_newGame(name1, loadout1) {
+  const lo1 = asLoadoutL(loadout1);
+  const g = { phase: 'waiting', loadouts: [lo1, null], players: [lMakePlayer(name1, lo1)], turn: 0, turnCount: 0, winner: null, lastPlay: null, log: [] };
   lDraw(g, g.players[0], L_START_HAND, true);
   return g;
 }
 function lLog(g, text, mark) { g.log.push({ text, mark: !!mark }); if (g.log.length > 60) g.log.shift(); }
-function LG_startGame(g, name2) {
-  const p2 = lMakePlayer(name2); g.players.push(p2);
+function LG_startGame(g, name2, loadout2) {
+  const lo2 = asLoadoutL(loadout2);
+  g.loadouts[1] = lo2;
+  const p2 = lMakePlayer(name2, lo2); g.players.push(p2);
   lDraw(g, p2, L_START_HAND, true);
   g.phase = 'playing';
   lLog(g, `バトル開始！ ${g.players[0].name} vs ${p2.name}`, true);
@@ -306,7 +483,7 @@ function lDraw(g, p, n, silent) {
       else { p.hp -= 1; if (!silent) lLog(g, `${p.name} は山札切れで1ダメージ`); continue; }
     }
     const card = p.deck.pop();
-    if (p.hand.length >= L_HAND_LIMIT) { p.discard.push(card); if (!silent) lLog(g, `${p.name} の手札が上限で ${LCARDS[card.defId].name} は捨て札に`); }
+    if (p.hand.length >= L_HAND_LIMIT) { p.discard.push(card); if (!silent) lLog(g, `${p.name} の手札が上限で ${p.cards[card.defId] ? p.cards[card.defId].name : card.defId} は捨て札に`); }
     else p.hand.push(card);
   }
 }
@@ -328,9 +505,8 @@ function lResolveFx(g, pi, fx) {
   if (fx.dmgAllFoe) { for (const f of foe.field) f.hp -= fx.dmgAllFoe; if (foe.field.length) parts.push(`相手フォロワー全体に ${fx.dmgAllFoe} ダメージ`); }
   if (fx.summon) {
     if (me.field.length < L_FIELD_LIMIT) {
-      const def = LCARDS[fx.summon];
-      me.field.push({ uid: lUid++, defId: fx.summon, atk: def.atk, hp: def.hp, maxHp: def.hp, sick: true, attacked: false });
-      parts.push(`${def.name} を出した`);
+      const def = me.cards[fx.summon];
+      if (def) { me.field.push({ uid: lUid++, defId: fx.summon, atk: def.atk, hp: def.hp, maxHp: def.hp, sick: true, attacked: false }); parts.push(`${def.name} を出した`); }
     }
   }
   if (fx.draw) { lDraw(g, me, fx.draw, false); parts.push(`${fx.draw}枚ドロー`); }
@@ -347,7 +523,7 @@ function lResolveDeaths(g) {
     });
     if (!dead.length) break;
     for (const d of dead) {
-      const def = LCARDS[d.f.defId];
+      const def = g.players[d.owner].cards[d.f.defId];
       g.players[d.owner].discard.push({ uid: d.f.uid, defId: d.f.defId });
       lLog(g, `${def.name} は破壊された`);
       if (def.lastwords) { const parts = lResolveFx(g, d.owner, def.lastwords); if (parts.length) lLog(g, `${def.name} のラストワード： ${parts.join('、')}`); }
@@ -361,7 +537,8 @@ function LG_playCard(g, pi, handIndex, target) {
   const me = g.players[pi], foe = g.players[1 - pi];
   const card = me.hand[handIndex];
   if (!card) return { error: 'そのカードはありません' };
-  const def = LCARDS[card.defId];
+  const def = me.cards[card.defId];
+  if (!def) return { error: 'そのカードはありません' };
   if (def.cost > me.energy) return { error: 'エネルギーが足りません' };
   if (def.type === 'follower') {
     if (me.field.length >= L_FIELD_LIMIT) return { error: '場が満員です（最大5体）' };
@@ -385,9 +562,10 @@ function LG_playCard(g, pi, handIndex, target) {
     me.discard.push(card);
     g.lastPlay = { who: me.name, name: def.name, text: def.text };
     const parts = [];
-    if (def.fx.dmgTarget) { targetF.hp -= def.fx.dmgTarget; parts.push(`${LCARDS[targetF.defId].name} に ${def.fx.dmgTarget} ダメージ`); }
-    if (def.fx.destroyTarget) { targetF.hp = 0; parts.push(`${LCARDS[targetF.defId].name} を破壊`); }
-    if (def.fx.buffTarget) { targetF.atk += def.fx.buffTarget[0]; targetF.hp += def.fx.buffTarget[1]; targetF.maxHp += def.fx.buffTarget[1]; parts.push(`${LCARDS[targetF.defId].name} を +${def.fx.buffTarget[0]}/+${def.fx.buffTarget[1]}`); }
+    const targetDef = targetF ? (target.side === 'foe' ? foe : me).cards[targetF.defId] : null;
+    if (def.fx.dmgTarget) { targetF.hp -= def.fx.dmgTarget; parts.push(`${targetDef.name} に ${def.fx.dmgTarget} ダメージ`); }
+    if (def.fx.destroyTarget) { targetF.hp = 0; parts.push(`${targetDef.name} を破壊`); }
+    if (def.fx.buffTarget) { targetF.atk += def.fx.buffTarget[0]; targetF.hp += def.fx.buffTarget[1]; targetF.maxHp += def.fx.buffTarget[1]; parts.push(`${targetDef.name} を +${def.fx.buffTarget[0]}/+${def.fx.buffTarget[1]}`); }
     parts.push(...lResolveFx(g, pi, def.fx));
     lLog(g, `${me.name} の「${def.name}」： ${parts.join('、') || def.text}`);
   }
@@ -405,20 +583,20 @@ function LG_attack(g, pi, attackerUid, target) {
   if (atk.attacked) return { error: 'このフォロワーはすでに攻撃しました' };
   if (atk.atk <= 0) return { error: '攻撃力が0のフォロワーは攻撃できません' };
   if (!target || (target.type !== 'leader' && target.type !== 'follower')) return { error: '攻撃対象を選んでください' };
-  const wards = foe.field.filter(f => LCARDS[f.defId].ward);
+  const wards = foe.field.filter(f => foe.cards[f.defId].ward);
   if (target.type === 'leader') {
     if (wards.length) return { error: '守護がいるためリーダーを攻撃できません' };
     atk.attacked = true;
     foe.hp -= atk.atk;
-    lLog(g, `${LCARDS[atk.defId].name} の攻撃： ${foe.name} に ${atk.atk} ダメージ`);
+    lLog(g, `${me.cards[atk.defId].name} の攻撃： ${foe.name} に ${atk.atk} ダメージ`);
   } else {
     const tf = foe.field.find(f => f.uid === target.uid);
     if (!tf) return { error: '対象のフォロワーがいません' };
-    if (wards.length && !LCARDS[tf.defId].ward) return { error: '守護のフォロワーを攻撃しなければなりません' };
+    if (wards.length && !foe.cards[tf.defId].ward) return { error: '守護のフォロワーを攻撃しなければなりません' };
     atk.attacked = true;
     tf.hp -= atk.atk;
     atk.hp -= tf.atk;
-    lLog(g, `${LCARDS[atk.defId].name} の攻撃： ${LCARDS[tf.defId].name} と戦闘（${atk.atk} ⇔ ${tf.atk}）`);
+    lLog(g, `${me.cards[atk.defId].name} の攻撃： ${foe.cards[tf.defId].name} と戦闘（${atk.atk} ⇔ ${tf.atk}）`);
   }
   lResolveDeaths(g);
   lCheckEnd(g);
@@ -454,12 +632,13 @@ function lCheckEnd(g) {
 }
 function LG_restart(g) {
   const names = g.players.map(p => p.name);
-  const fresh = LG_newGame(names[0]);
+  const loadouts = g.loadouts;
+  const fresh = LG_newGame(names[0], loadouts[0]);
   Object.assign(g, fresh);
-  LG_startGame(g, names[1]);
+  LG_startGame(g, names[1], loadouts[1]);
 }
-function lFollowerView(f) {
-  const def = LCARDS[f.defId];
+function lFollowerView(f, cards) {
+  const def = cards[f.defId];
   return { uid: f.uid, defId: f.defId, name: def.name, icon: def.icon, color: def.color, cost: def.cost,
     atk: f.atk, hp: f.hp, maxHp: f.maxHp, ward: !!def.ward, rush: !!def.rush,
     sick: f.sick, canAttack: !f.sick && !f.attacked, text: def.text };
@@ -467,11 +646,11 @@ function lFollowerView(f) {
 function LG_viewFor(g, pi) {
   const me = g.players[pi], foe = g.players[1 - pi];
   const pub = (p) => p ? { name: p.name, hp: Math.max(0, p.hp), maxhp: p.maxhp, energy: p.energy, maxEnergy: p.maxEnergy,
-    handCount: p.hand.length, deckCount: p.deck.length, field: p.field.map(lFollowerView) } : null;
+    handCount: p.hand.length, deckCount: p.deck.length, field: p.field.map(f => lFollowerView(f, p.cards)) } : null;
   return { phase: g.phase, turn: g.turn, turnNumber: Math.ceil(Math.max(1, g.turnCount) / 2), youAre: pi,
     isMyTurn: g.phase === 'playing' && g.turn === pi, winner: g.winner,
     winnerName: g.winner != null ? g.players[g.winner].name : null, turnCount: g.turnCount,
-    me: me ? { ...pub(me), hand: me.hand.map(c => { const def = LCARDS[c.defId];
+    me: me ? { ...pub(me), customDeck: !!me.customDeck, hand: me.hand.map(c => { const def = me.cards[c.defId];
       return { uid: c.uid, defId: c.defId, type: def.type, name: def.name, icon: def.icon, color: def.color, cost: def.cost,
         atk: def.atk, hp: def.hp, ward: !!def.ward, rush: !!def.rush, needsTarget: def.needsTarget || null, text: def.text }; }) } : null,
     foe: pub(foe), lastPlay: g.lastPlay, log: g.log.slice(-40), foeJoined: g.players.length > 1, foeConnected: true };
@@ -479,8 +658,9 @@ function LG_viewFor(g, pi) {
 </script>
 
 <script>
-// ===== UI（CPU／オンライン共通レンダラ）＋ オンライン通信 =====
+// ===== UI（CPU／オンライン共通レンダラ）＋ オンライン通信 ＋ カード編集 =====
 const $ = (id) => document.getElementById(id);
+const CUSTOM_KEY = 'mb_custom_v1'; // 保存した編集カード＋デッキ（{ cards, deck }）
 let mode = null;           // 'cpu' | 'online'
 let lg = null;             // CPU用ローカルゲーム
 let ws = null;
@@ -492,7 +672,7 @@ let resultShown = false;
 let aiTimer = null;
 
 function show(id) {
-  ['screen-mode', 'screen-online', 'screen-game'].forEach(s => $(s).classList.toggle('hidden', s !== id));
+  ['screen-mode', 'screen-online', 'screen-editor', 'screen-game'].forEach(s => $(s).classList.toggle('hidden', s !== id));
 }
 function toast(msg) {
   const t = $('toast');
@@ -502,6 +682,26 @@ function toast(msg) {
   t._tm = setTimeout(() => t.classList.add('hidden'), 2600);
 }
 function clearSel() { sel = null; }
+function esc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+
+// ---- 保存デッキ（編集データ）の読み書き ----
+function loadSavedRaw() {
+  try {
+    const s = localStorage.getItem(CUSTOM_KEY);
+    if (!s) return null;
+    const data = JSON.parse(s);
+    return (data && typeof data === 'object') ? data : null;
+  } catch (e) { return null; }
+}
+// 保存データの状態を日本語で返す（ロビー表示用）
+function savedDeckLabel() {
+  const raw = loadSavedRaw();
+  if (!raw) return '使用デッキ：標準デッキ';
+  const r = resolveLoadoutL(raw);
+  if (r.fallback) return '使用デッキ：標準デッキ（保存データが使えないため）';
+  return r.custom ? '使用デッキ：カスタムデッキ（保存済み）' : '使用デッキ：標準デッキ';
+}
+function refreshLobbyDeckNote() { $('lobby-deck-note').textContent = savedDeckLabel(); }
 
 // ---- アクションのディスパッチ（モードで送信先を切り替え） ----
 function doPlay(handIndex, target) {
@@ -571,7 +771,8 @@ function render() {
   // 相手
   if (st.foe) {
     $('foe-name').textContent = st.foe.name;
-    $('foe-tag').textContent = mode === 'online' ? '相手' : 'CPU';
+    // 「CPU」タグはCPU対戦のときだけ。オンラインでは相手のプレイヤー名＋「相手」と出す。
+    $('foe-tag').textContent = mode === 'cpu' ? 'CPU' : '相手';
     $('foe-status').textContent = (mode === 'online' && st.foeJoined && !st.foeConnected) ? '（切断中…）' : '';
     $('foe-hpfill').style.width = Math.max(0, st.foe.hp / st.foe.maxhp * 100) + '%';
     $('foe-hpbar').classList.toggle('low', st.foe.hp <= 6);
@@ -584,7 +785,7 @@ function render() {
   }
   // 自分
   $('me-name').textContent = st.me.name;
-  $('me-tag').textContent = 'あなた';
+  $('me-tag').textContent = 'あなた' + (st.me.customDeck ? '（カスタムデッキ）' : '');
   $('me-status').textContent = st.isMyTurn ? 'あなたのターン' : '';
   $('me-hpfill').style.width = Math.max(0, st.me.hp / st.me.maxhp * 100) + '%';
   $('me-hpbar').classList.toggle('low', st.me.hp <= 6);
@@ -622,7 +823,8 @@ function render() {
   $('log').innerHTML = st.log.map(l => `<li class="${l.mark ? 'mark' : ''}">${l.text}</li>`).join('');
   $('log').parentElement.scrollTop = $('log').parentElement.scrollHeight;
   bindBattleClicks();
-  // オンラインの相手待ち
+  // オンラインの相手待ち：ルーム作成直後は待機画面（大きなルームコード）を出す。
+  // 相手が参加して対戦が始まったら自動で閉じる。
   if (mode === 'online') {
     const waiting = st.phase === 'waiting' || !st.foeJoined;
     $('overlay-wait').classList.toggle('hidden', !waiting);
@@ -696,6 +898,7 @@ function onMinionClick(side, uid) {
 }
 
 // ---- CPU AI（簡易）: 出せるフォロワーを出し、除去を使い、攻撃できるフォロワーで攻撃する ----
+// 定義参照は各プレイヤー自身のカードセットから引く（相手の編集内容にも正しく追従する）。
 function scheduleAi() {
   clearTimeout(aiTimer);
   aiTimer = setTimeout(aiStep, 600);
@@ -703,16 +906,17 @@ function scheduleAi() {
 function aiStep() {
   if (mode !== 'cpu' || !lg || lg.phase !== 'playing' || lg.turn !== 1) return;
   const me = lg.players[1], foe = lg.players[0];
-  const affordable = (c) => LCARDS[c.defId].cost <= me.energy;
+  const myDef = (c) => me.cards[c.defId];
+  const affordable = (c) => myDef(c).cost <= me.energy;
   // 1) フォロワーを出す（コスト高い順）
   let idx = -1, best = -1;
-  me.hand.forEach((c, i) => { const d = LCARDS[c.defId]; if (d.type === 'follower' && affordable(c) && d.cost > best && me.field.length < 5) { best = d.cost; idx = i; } });
+  me.hand.forEach((c, i) => { const d = myDef(c); if (d.type === 'follower' && affordable(c) && d.cost > best && me.field.length < 5) { best = d.cost; idx = i; } });
   if (idx >= 0) { LG_playCard(lg, 1, idx, null); afterLocal(); return scheduleAi(); }
   // 2) 除去スペル（守護を優先、次に攻撃力の高い相手）
   const pickTarget = (maxHp) => {
     let cands = foe.field.filter(f => maxHp == null || f.hp <= maxHp);
     if (!cands.length) return null;
-    const wards = cands.filter(f => LCARDS[f.defId].ward);
+    const wards = cands.filter(f => foe.cards[f.defId].ward);
     if (wards.length) cands = wards;
     return cands.reduce((a, b) => (b.atk > a.atk ? b : a));
   };
@@ -735,7 +939,7 @@ function aiStep() {
   // 4) 攻撃（守護がいれば守護へ。いなければ有利な戦闘を優先し、残りはリーダーへ）
   const attacker = me.field.find(f => !f.sick && !f.attacked && f.atk > 0);
   if (attacker) {
-    const wards = foe.field.filter(f => LCARDS[f.defId].ward);
+    const wards = foe.field.filter(f => foe.cards[f.defId].ward);
     let target;
     if (wards.length) target = { type: 'follower', uid: wards[0].uid };
     else {
@@ -761,8 +965,16 @@ function startCpu() {
   roomCode = null;
   resultShown = false;
   clearSel();
-  lg = LG_newGame('あなた');
-  LG_startGame(lg, 'CPU');
+  // プレイヤーは保存デッキ（編集済みならカスタム）、CPUは標準デッキ
+  let myLo = null;
+  const raw = loadSavedRaw();
+  if (raw) {
+    const r = resolveLoadoutL(raw);
+    if (r.fallback) toast('保存デッキが使えなかったため、標準デッキで対戦します');
+    else if (r.custom) myLo = r;
+  }
+  lg = LG_newGame('あなた', myLo);
+  LG_startGame(lg, 'CPU', null);
   show('screen-game');
   $('btn-leave').textContent = 'モード選択へ';
   afterLocal();
@@ -776,6 +988,7 @@ function wsUrl() {
 function wsSend(o) { if (ws && ws.readyState === 1) ws.send(JSON.stringify(o)); }
 function setStatus(t) { $('online-status').textContent = t; }
 function connect(onOpen) {
+  mode = 'online'; // オンライン対戦中は相手タグを「相手」にする（CPUと誤表示しないため）
   if (ws) { try { ws.close(); } catch (e) {} }
   ws = new WebSocket(wsUrl());
   ws.onopen = () => { setStatus('接続しました'); if (onOpen) onOpen(); };
@@ -794,6 +1007,8 @@ function connect(onOpen) {
       cur = m.state;
       if (cur.phase !== 'over') $('overlay-result').classList.add('hidden');
       render();
+    } else if (m.type === 'notice') {
+      toast(m.message);
     } else if (m.type === 'error') {
       toast(m.message);
       setStatus(m.message);
@@ -817,21 +1032,230 @@ function refreshReconnectBox() {
   if (saved) $('oreconnect-code').textContent = saved.code;
 }
 
+// ===== カード編集・デッキ構築 =====
+let editState = null; // { cards: {id: def}, counts: {id: n} }
+const FX_KIND_FOLLOWER = [
+  ['none', 'なし'], ['dmgLeader', '相手リーダーにダメージ'], ['healLeader', '自分リーダーを回復'],
+  ['draw', 'カードを引く'], ['dmgAllFoe', '相手フォロワー全体にダメージ'], ['summon', 'ミニスライムを出す'],
+];
+const FX_KIND_SPELL = [
+  ['dmgTarget', '対象の相手フォロワーにダメージ'], ['destroyTarget', '対象の相手フォロワーを破壊'],
+  ['buffTarget', '対象の自分のフォロワーを強化（攻／体）'], ['dmgLeader', '相手リーダーにダメージ'],
+  ['healLeader', '自分リーダーを回復'], ['draw', 'カードを引く'], ['dmgAllFoe', '相手フォロワー全体にダメージ'],
+];
+function fxToUi(fx) {
+  if (!fx) return { kind: 'none', val: 0, val2: 0 };
+  if (fx.summon) return { kind: 'summon', val: 0, val2: 0 };
+  if (fx.destroyTarget) return { kind: 'destroyTarget', val: 0, val2: 0 };
+  if (fx.buffTarget) return { kind: 'buffTarget', val: fx.buffTarget[0], val2: fx.buffTarget[1] };
+  for (const k of ['dmgTarget', 'dmgLeader', 'healLeader', 'draw', 'dmgAllFoe']) if (fx[k]) return { kind: k, val: fx[k], val2: 0 };
+  return { kind: 'none', val: 0, val2: 0 };
+}
+function uiToFx(kind, val, val2) {
+  if (!kind || kind === 'none') return undefined;
+  if (kind === 'summon') return { summon: L_TOKEN };
+  if (kind === 'destroyTarget') return { destroyTarget: true };
+  if (kind === 'buffTarget') return { buffTarget: [parseInt(val, 10) || 0, parseInt(val2, 10) || 0] };
+  const o = {}; o[kind] = parseInt(val, 10) || 0; return o;
+}
+function standardCardsCopy() {
+  const c = JSON.parse(JSON.stringify(LCARDS));
+  delete c[L_TOKEN];
+  return c;
+}
+function standardDeckCounts() {
+  const n = {};
+  for (const id of LDECK) n[id] = (n[id] || 0) + 1;
+  return n;
+}
+function countsFromDeck(deck) {
+  const n = {};
+  if (Array.isArray(deck)) for (const id of deck) n[id] = (n[id] || 0) + 1;
+  return n;
+}
+function deckFromCounts(counts) {
+  const arr = [];
+  for (const id of Object.keys(counts)) for (let i = 0; i < (counts[id] || 0); i++) arr.push(id);
+  return arr;
+}
+function editorOrder() {
+  const ids = Object.keys(LCARDS).filter(id => id !== L_TOKEN);
+  const extra = Object.keys(editState.cards).filter(id => !ids.includes(id)).sort();
+  return ids.concat(extra).filter(id => editState.cards[id]);
+}
+function editorInit() {
+  const raw = loadSavedRaw();
+  let cards = null, counts = null;
+  if (raw) {
+    const clean = sanitizeCardSetL(raw.cards);
+    if (clean) {
+      cards = clean; delete cards[L_TOKEN];
+      counts = countsFromDeck(raw.deck);
+    }
+  }
+  if (!cards) { cards = standardCardsCopy(); counts = standardDeckCounts(); }
+  for (const id of Object.keys(cards)) if (counts[id] == null) counts[id] = 0;
+  editState = { cards, counts };
+  renderEditor();
+  setEditorStatus(raw ? '保存済みの編集内容を読み込みました。' : '標準カード・標準デッキから編集を始められます。');
+}
+function setEditorStatus(t) { $('editor-status').textContent = t; }
+function optionsHtml(opts, curVal) {
+  return opts.map(([v, label]) => `<option value="${v}"${v === curVal ? ' selected' : ''}>${label}</option>`).join('');
+}
+function renderEditor() {
+  if (!editState) return;
+  const html = editorOrder().map(id => {
+    const d = editState.cards[id];
+    const cnt = editState.counts[id] || 0;
+    const head = `<div class="ed-head">
+      <span class="ed-ic">${esc(d.icon)}</span><span class="ed-nm">${esc(d.name)}</span>
+      <span class="f-tag">${d.type === 'follower' ? 'フォロワー' : 'スペル'}</span>
+      <span class="ed-deck">デッキ <button type="button" class="step" data-dec="${esc(id)}">−</button><span class="cnt" id="edcount-${esc(id)}">${cnt}</span><button type="button" class="step" data-inc="${esc(id)}">＋</button> 枚</span>
+    </div>`;
+    const base = `<div class="ed-grid">
+      <label>名前<input type="text" id="edf-${esc(id)}-name" value="${esc(d.name)}" maxlength="24"></label>
+      <label>アイコン（絵文字1文字）<input type="text" id="edf-${esc(id)}-icon" value="${esc(d.icon)}" maxlength="4"></label>
+      <label>色<input type="color" id="edf-${esc(id)}-color" value="${esc(d.color)}"></label>
+      <label>コスト（0〜10）<input type="number" id="edf-${esc(id)}-cost" value="${d.cost}" min="0" max="10"></label>
+      <label class="wide">説明文<input type="text" id="edf-${esc(id)}-text" value="${esc(d.text)}" maxlength="80"></label>`;
+    let extra = '';
+    if (d.type === 'follower') {
+      const ff = fxToUi(d.fanfare), lw = fxToUi(d.lastwords);
+      extra = `
+      <label>攻撃力（0〜15）<input type="number" id="edf-${esc(id)}-atk" value="${d.atk}" min="0" max="15"></label>
+      <label>体力（1〜20）<input type="number" id="edf-${esc(id)}-hp" value="${d.hp}" min="1" max="20"></label>
+      <label class="chk"><input type="checkbox" id="edf-${esc(id)}-ward"${d.ward ? ' checked' : ''}> 守護</label>
+      <label class="chk"><input type="checkbox" id="edf-${esc(id)}-rush"${d.rush ? ' checked' : ''}> 疾走</label>
+      <label>ファンファーレ（出たとき）<select id="edf-${esc(id)}-ffkind">${optionsHtml(FX_KIND_FOLLOWER, ff.kind)}</select></label>
+      <label>ファンファーレ数値<input type="number" id="edf-${esc(id)}-ffval" value="${ff.val}" min="0" max="15"></label>
+      <label>ラストワード（倒れたとき）<select id="edf-${esc(id)}-lwkind">${optionsHtml(FX_KIND_FOLLOWER, lw.kind)}</select></label>
+      <label>ラストワード数値<input type="number" id="edf-${esc(id)}-lwval" value="${lw.val}" min="0" max="15"></label>`;
+    } else {
+      const fx = fxToUi(d.fx);
+      extra = `
+      <label>効果の種類<select id="edf-${esc(id)}-fxkind">${optionsHtml(FX_KIND_SPELL, fx.kind)}</select></label>
+      <label>効果の数値<input type="number" id="edf-${esc(id)}-fxval" value="${fx.val}" min="0" max="15"></label>
+      <label>強化の体力分（強化のときだけ）<input type="number" id="edf-${esc(id)}-fxval2" value="${fx.val2}" min="0" max="10"></label>`;
+    }
+    return `<div class="ed-card" data-edid="${esc(id)}">${head}${base}${extra}</div></div>`;
+  }).join('');
+  $('editor-list').innerHTML = html;
+  updateDeckSummary();
+}
+function readEditorCards() {
+  const cards = {};
+  for (const id of editorOrder()) {
+    const base = editState.cards[id];
+    const v = (suffix) => { const el = document.getElementById(`edf-${id}-${suffix}`); return el ? el.value : ''; };
+    const chk = (suffix) => { const el = document.getElementById(`edf-${id}-${suffix}`); return !!(el && el.checked); };
+    const def = { type: base.type, name: v('name'), icon: v('icon'), color: v('color'), cost: v('cost'), text: v('text') };
+    if (base.type === 'follower') {
+      def.atk = v('atk'); def.hp = v('hp');
+      def.ward = chk('ward'); def.rush = chk('rush');
+      const ff = uiToFx(v('ffkind'), v('ffval'), 0); if (ff) def.fanfare = ff;
+      const lw = uiToFx(v('lwkind'), v('lwval'), 0); if (lw) def.lastwords = lw;
+    } else {
+      def.fx = uiToFx(v('fxkind'), v('fxval'), v('fxval2')) || {};
+    }
+    cards[id] = def;
+  }
+  return cards;
+}
+function deckTotalCount() {
+  if (!editState) return 0;
+  return Object.values(editState.counts).reduce((a, b) => a + (b || 0), 0);
+}
+function deckProblems() {
+  const probs = [];
+  if (!editState) return probs;
+  const total = deckTotalCount();
+  if (total !== L_DECK_SIZE) probs.push(`デッキは30枚ちょうどにしてください（現在${total}枚）`);
+  for (const id of Object.keys(editState.counts)) {
+    const n = editState.counts[id] || 0;
+    if (n > L_MAX_COPIES) probs.push(`「${editState.cards[id] ? editState.cards[id].name : id}」は最大3枚までです（現在${n}枚）`);
+  }
+  return probs;
+}
+function updateDeckSummary() {
+  if (!editState) return;
+  $('deck-total').textContent = `デッキ合計 ${deckTotalCount()} / 30枚`;
+  const probs = deckProblems();
+  const msg = $('deck-msg');
+  if (probs.length) { msg.textContent = probs.join('／'); msg.className = 'deck-msg-bad'; }
+  else { msg.textContent = 'この内容で保存できます'; msg.className = 'deck-msg-ok'; }
+}
+function saveEditor() {
+  if (!editState) return false;
+  const clean = sanitizeCardSetL(readEditorCards());
+  if (!clean) { setEditorStatus('保存できません：カードデータが不正です'); return false; }
+  const probs = deckProblems();
+  const missing = Object.keys(editState.counts).filter(id => (editState.counts[id] || 0) > 0 && !clean[id]);
+  if (missing.length) probs.push('デッキに入っているのにカードデータがないカードがあります');
+  const deck = validateDeckL(clean, deckFromCounts(editState.counts));
+  if (!deck) {
+    setEditorStatus('保存できません：' + (probs.join('／') || 'デッキが成立しません（30枚ちょうど・同名3枚まで）'));
+    return false;
+  }
+  const payload = { cards: clean, deck };
+  delete payload.cards[L_TOKEN];
+  try { localStorage.setItem(CUSTOM_KEY, JSON.stringify(payload)); } catch (e) {}
+  setEditorStatus('保存しました。CPU対戦・オンライン対戦でこのデッキが使われます。');
+  toast('デッキを保存しました');
+  return true;
+}
+function resetEditor() {
+  try { localStorage.removeItem(CUSTOM_KEY); } catch (e) {}
+  editState = { cards: standardCardsCopy(), counts: standardDeckCounts() };
+  renderEditor();
+  setEditorStatus('標準カード・標準デッキに戻しました（保存データも消しました）。');
+  toast('標準に戻しました');
+}
+function exportEditor() {
+  if (!editState) return;
+  const data = JSON.stringify({ cards: readEditorCards(), deck: deckFromCounts(editState.counts) }, null, 2);
+  $('editor-io').value = data;
+  try {
+    const blob = new Blob([data], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'monster-battle-deck.json';
+    if (a.click) a.click();
+    setTimeout(() => { try { URL.revokeObjectURL(a.href); } catch (e) {} }, 1000);
+  } catch (e) {}
+  setEditorStatus('書き出しました（ファイル保存とテキスト欄の両方）。');
+}
+function importEditorData(text) {
+  let data;
+  try { data = JSON.parse(text); } catch (e) { setEditorStatus('読み込み失敗：JSONとして読み取れませんでした'); return false; }
+  const clean = data && sanitizeCardSetL(data.cards);
+  if (!clean) { setEditorStatus('読み込み失敗：カードデータが不正です'); return false; }
+  delete clean[L_TOKEN];
+  const counts = countsFromDeck(data.deck);
+  for (const id of Object.keys(clean)) if (counts[id] == null) counts[id] = 0;
+  editState = { cards: clean, counts };
+  renderEditor();
+  setEditorStatus('読み込みました。内容を確認して「保存する」を押してください。');
+  return true;
+}
+
 // ---- イベント配線 ----
 $('btn-mode-cpu').onclick = () => startCpu();
-$('btn-mode-online').onclick = () => { show('screen-online'); refreshReconnectBox(); setStatus(''); };
+$('btn-mode-online').onclick = () => { show('screen-online'); refreshReconnectBox(); refreshLobbyDeckNote(); setStatus(''); };
+$('btn-mode-editor').onclick = () => { show('screen-editor'); editorInit(); };
+$('btn-editor-back').onclick = () => show('screen-mode');
 $('btn-online-back').onclick = () => show('screen-mode');
 $('btn-create-room').onclick = () => {
   const name = $('oname').value.trim() || 'プレイヤー1';
   setStatus('接続中…');
-  connect(() => wsSend({ type: 'create', name }));
+  connect(() => wsSend({ type: 'create', name, loadout: loadSavedRaw() }));
 };
 $('btn-join-room').onclick = () => {
   const code = $('ocode').value.trim().toUpperCase();
   if (code.length !== 4) { toast('ルームコードは4文字です'); return; }
   const name = $('oname').value.trim() || 'プレイヤー2';
   setStatus('接続中…');
-  connect(() => wsSend({ type: 'join', code, name }));
+  connect(() => wsSend({ type: 'join', code, name, loadout: loadSavedRaw() }));
 };
 $('btn-reconnect').onclick = () => {
   let saved = null;
@@ -859,6 +1283,13 @@ $('btn-leave').onclick = () => {
   else { lg = null; cur = null; show('screen-mode'); }
 };
 $('btn-wait-leave').onclick = () => leaveOnline();
+$('btn-copy-code').onclick = () => {
+  const code = ($('wait-code').textContent || '').trim();
+  if (!code || code === '----') { toast('ルームコードがまだ表示されていません'); return; }
+  const done = () => toast(`ルームコード ${code} をコピーしました`);
+  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(code).then(done, () => toast(`ルームコード： ${code}`));
+  else toast(`ルームコード： ${code}`);
+};
 $('btn-rematch').onclick = () => {
   $('overlay-result').classList.add('hidden');
   resultShown = false;
@@ -870,10 +1301,49 @@ $('btn-back-mode').onclick = () => {
   if (mode === 'online') leaveOnline();
   else { lg = null; cur = null; show('screen-mode'); }
 };
+$('btn-editor-save').onclick = () => saveEditor();
+$('btn-editor-reset').onclick = () => resetEditor();
+$('btn-editor-export').onclick = () => exportEditor();
+$('btn-editor-import').onclick = () => {
+  const text = $('editor-io').value.trim();
+  if (text) importEditorData(text);
+  else if ($('editor-file').click) $('editor-file').click();
+};
+$('editor-file').addEventListener('change', (e) => {
+  const f = e.target.files && e.target.files[0];
+  if (!f) return;
+  const r = new FileReader();
+  r.onload = () => importEditorData(String(r.result || ''));
+  r.readAsText(f);
+});
+$('editor-list').addEventListener('click', (e) => {
+  if (!editState || !e.target || !e.target.dataset) return;
+  const incId = e.target.dataset.inc, decId = e.target.dataset.dec;
+  const id = incId || decId;
+  if (!id) return;
+  const now = editState.counts[id] || 0;
+  const next = incId ? Math.min(L_MAX_COPIES, now + 1) : Math.max(0, now - 1);
+  editState.counts[id] = next;
+  const span = document.getElementById(`edcount-${id}`);
+  if (span) span.textContent = next;
+  updateDeckSummary();
+});
 const openRules = () => $('overlay-rules').classList.remove('hidden');
 $('btn-rules-top').onclick = openRules;
 $('btn-rules2').onclick = openRules;
 $('btn-rules-close').onclick = () => $('overlay-rules').classList.add('hidden');
+
+// テスト用フック（通常の利用では使わない）
+window.__MBTEST__ = {
+  get cur() { return cur; },
+  get mode() { return mode; },
+  sanitizeCardSetL, validateDeckL, resolveLoadoutL,
+  loadSavedRaw, savedDeckLabel, startCpu,
+  openEditor: () => { show('screen-editor'); editorInit(); },
+  getEditState: () => editState,
+  setDeckCount: (id, n) => { if (editState) { editState.counts[id] = n; updateDeckSummary(); } },
+  deckProblems, saveEditor, importEditorData, resetEditor,
+};
 </script>
 </body>
 </html>
