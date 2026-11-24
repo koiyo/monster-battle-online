@@ -1,0 +1,1 @@
+{"dependencies":{"ws":"^8.23.0"},"description":"モンスターバトル オンライン版（フォロワーを出して戦う2人対戦カードゲーム、サーバー審判方式）","engines":{"node":">=18"},"license":"ISC","main":"server.js","name":"monster-battle-online","scripts":{"start":"node server.js","test":"node test/test.js","test:multi":"node test/multi-room-test.js"},"version":"1.0.0"}
